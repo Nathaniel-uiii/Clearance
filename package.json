@@ -1,0 +1,12 @@
+{
+  "name": "another-system",
+  "private": true,
+  "description": "Frontend: prime-next/ (npm run dev). API: prime-api/ (npm run api).",
+  "scripts": {
+    "dev": "npm run dev --prefix prime-next",
+    "api": "npm run dev --prefix prime-api",
+    "build": "npm run build --prefix prime-next",
+    "start": "npm run start --prefix prime-next",
+    "lint": "npm run lint --prefix prime-next"
+  }
+}
