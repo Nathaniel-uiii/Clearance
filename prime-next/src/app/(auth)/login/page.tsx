@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { apiJson } from "@/lib/api";
 import { setToken } from "@/lib/auth";
+import { validateRegisterForm } from "@/lib/baldomarValidation";
 
 export default function LoginPage() {
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -64,6 +65,18 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+    const regErr = validateRegisterForm({
+      fullName: regName,
+      email: regEmail,
+      password: regPassword,
+      gender: regGender,
+      securityQ1: regQ1,
+      securityQ2: regQ2,
+    });
+    if (regErr) {
+      setError(regErr);
+      return;
+    }
     setBusy(true);
     try {
       await apiJson("/auth/register", {
@@ -136,39 +149,41 @@ export default function LoginPage() {
               <div className="auth-alert auth-alert--success">{success}</div>
             ) : null}
 
-            <div className="input-box input-box--float">
-              <input
-                id="login-email"
-                type="email"
-                name="email"
-                className="input-field"
-                placeholder=" "
-                autoComplete="email"
-                required
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-              />
-              <label className="field-label" htmlFor="login-email">
+            <div className="input-box input-box--stacked">
+              <label className="field-label field-label--above" htmlFor="login-email">
                 Email Address
               </label>
-              <i className="bx bx-user" />
+              <div className="input-box__control">
+                <i className="bx bx-user" aria-hidden={true} />
+                <input
+                  id="login-email"
+                  type="email"
+                  name="email"
+                  className="input-field"
+                  autoComplete="email"
+                  required
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                />
+              </div>
             </div>
-            <div className="input-box input-box--float">
-              <input
-                id="login-password"
-                type="password"
-                name="password"
-                className="input-field"
-                placeholder=" "
-                autoComplete="current-password"
-                required
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-              />
-              <label className="field-label" htmlFor="login-password">
+            <div className="input-box input-box--stacked">
+              <label className="field-label field-label--above" htmlFor="login-password">
                 Password
               </label>
-              <i className="bx bx-lock-alt" />
+              <div className="input-box__control">
+                <i className="bx bx-lock-alt" aria-hidden={true} />
+                <input
+                  id="login-password"
+                  type="password"
+                  name="password"
+                  className="input-field"
+                  autoComplete="current-password"
+                  required
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                />
+              </div>
             </div>
             <div className="input-box">
               <button type="submit" className="submit" disabled={busy}>
@@ -221,24 +236,28 @@ export default function LoginPage() {
             ) : null}
 
             <div className="two-forms">
-              <div className="input-box input-box--float">
-                <input
-                  id="reg-name"
-                  type="text"
-                  name="User"
-                  className="input-field"
-                  placeholder=" "
-                  autoComplete="name"
-                  required
-                  value={regName}
-                  onChange={(e) => setRegName(e.target.value)}
-                />
-                <label className="field-label" htmlFor="reg-name">
+              <div className="input-box input-box--stacked">
+                <label className="field-label field-label--above" htmlFor="reg-name">
                   Full Name
                 </label>
-                <i className="bx bx-user" />
+                <div className="input-box__control">
+                  <i className="bx bx-user" aria-hidden={true} />
+                  <input
+                    id="reg-name"
+                    type="text"
+                    name="User"
+                    className="input-field"
+                    autoComplete="name"
+                    required
+                    value={regName}
+                    onChange={(e) => setRegName(e.target.value)}
+                  />
+                </div>
               </div>
-              <div className="input-box input-box--float input-box--float-select">
+              <div className="input-box input-box--stacked input-box--stacked-select">
+                <label className="field-label field-label--above" htmlFor="reg-gender">
+                  Gender
+                </label>
                 <select
                   id="reg-gender"
                   name="gender"
@@ -254,76 +273,84 @@ export default function LoginPage() {
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
                 </select>
-                <label className="field-label" htmlFor="reg-gender">
-                  Gender
-                </label>
               </div>
             </div>
-            <div className="input-box input-box--float">
-              <input
-                id="reg-email"
-                type="email"
-                name="email"
-                className="input-field"
-                placeholder=" "
-                autoComplete="email"
-                required
-                value={regEmail}
-                onChange={(e) => setRegEmail(e.target.value)}
-              />
-              <label className="field-label" htmlFor="reg-email">
+            <div className="input-box input-box--stacked">
+              <label className="field-label field-label--above" htmlFor="reg-email">
                 Email
               </label>
-              <i className="bx bx-envelope" />
+              <div className="input-box__control">
+                <i className="bx bx-envelope" aria-hidden={true} />
+                <input
+                  id="reg-email"
+                  type="email"
+                  name="email"
+                  className="input-field"
+                  autoComplete="email"
+                  required
+                  value={regEmail}
+                  onChange={(e) => setRegEmail(e.target.value)}
+                />
+              </div>
             </div>
-            <div className="input-box input-box--float">
-              <input
-                id="reg-password"
-                type="password"
-                name="password"
-                className="input-field"
-                placeholder=" "
-                autoComplete="new-password"
-                required
-                value={regPassword}
-                onChange={(e) => setRegPassword(e.target.value)}
-              />
-              <label className="field-label" htmlFor="reg-password">
+            <div className="input-box input-box--stacked">
+              <label className="field-label field-label--above" htmlFor="reg-password">
                 Password
               </label>
-              <i className="bx bx-lock-alt" />
+              <div className="input-box__control">
+                <i className="bx bx-lock-alt" aria-hidden={true} />
+                <input
+                  id="reg-password"
+                  type="password"
+                  name="password"
+                  className="input-field"
+                  autoComplete="new-password"
+                  required
+                  aria-describedby="reg-password-hint"
+                  value={regPassword}
+                  onChange={(e) => setRegPassword(e.target.value)}
+                />
+              </div>
+              <p className="field-hint" id="reg-password-hint">
+                At least 8 characters, max 72 bytes. Include at least one number and one special
+                character (!@#$%^&amp;* etc.).
+              </p>
             </div>
-            <div className="input-box input-box--float">
-              <input
-                id="reg-q1"
-                type="text"
-                name="security_q1"
-                className="input-field"
-                placeholder=" "
-                autoComplete="off"
-                value={regQ1}
-                onChange={(e) => setRegQ1(e.target.value)}
-              />
-              <label className="field-label" htmlFor="reg-q1">
+            <div className="input-box input-box--stacked">
+              <label className="field-label field-label--above" htmlFor="reg-q1">
                 What was your first pet&apos;s name?
               </label>
-              <i className="bx bx-question-mark" />
+              <div className="input-box__control">
+                <i className="bx bx-question-mark" aria-hidden={true} />
+                <input
+                  id="reg-q1"
+                  type="text"
+                  name="security_q1"
+                  className="input-field"
+                  autoComplete="off"
+                  required
+                  value={regQ1}
+                  onChange={(e) => setRegQ1(e.target.value)}
+                />
+              </div>
             </div>
-            <div className="input-box input-box--float">
-              <input
-                id="reg-q2"
-                type="text"
-                name="security_q2"
-                className="input-field"
-                placeholder=" "
-                autoComplete="off"
-                value={regQ2}
-                onChange={(e) => setRegQ2(e.target.value)}
-              />
-              <label className="field-label" htmlFor="reg-q2">
+            <div className="input-box input-box--stacked">
+              <label className="field-label field-label--above" htmlFor="reg-q2">
                 In which city were you born?
               </label>
-              <i className="bx bx-question-mark" />
+              <div className="input-box__control">
+                <i className="bx bx-question-mark" aria-hidden={true} />
+                <input
+                  id="reg-q2"
+                  type="text"
+                  name="security_q2"
+                  className="input-field"
+                  autoComplete="off"
+                  required
+                  value={regQ2}
+                  onChange={(e) => setRegQ2(e.target.value)}
+                />
+              </div>
             </div>
             <div className="input-box">
               <input

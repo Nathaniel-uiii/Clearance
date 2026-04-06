@@ -186,6 +186,62 @@ header{
     z-index: 1;
 }
 
+/* Labels above inputs (login / register main form) */
+.input-box__control{
+    position: relative;
+    width: 100%;
+}
+.input-box--stacked{
+    margin-bottom: 14px;
+}
+.login-container .input-box--stacked,
+.register-container .input-box--stacked{
+    margin-bottom: 14px;
+}
+.register-container .two-forms .input-box--stacked{
+    flex: 1;
+    min-width: 0;
+    margin-bottom: 0;
+}
+.field-label.field-label--above{
+    position: static;
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.95);
+    margin-bottom: 6px;
+    padding-left: 4px;
+    pointer-events: auto;
+    line-height: 1.35;
+    white-space: normal;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+.input-box--stacked .input-box__control i{
+    position: absolute;
+    left: 17px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #fff;
+    z-index: 1;
+    pointer-events: none;
+    font-size: 1.15rem;
+}
+.input-box--stacked .input-field{
+    padding-left: 45px;
+}
+.input-box--stacked-select .input-field{
+    padding-left: 16px;
+}
+
+.field-hint{
+    font-size: 11px;
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.78);
+    margin: 6px 0 0;
+    padding-left: 4px;
+    max-width: 100%;
+}
+
 /* Floating label: reserve space above pill; label sits in strip when focused/filled */
 .input-box--float{
     position: relative;

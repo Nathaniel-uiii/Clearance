@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,20 +24,15 @@ from app.security import (
     hash_password,
     verify_password,
 )
+from app.scheduling import (
+    assert_may_cancel,
+    assert_min_lead_before_start,
+    resolve_appointment_start,
+)
 
 MONTHLY_APPOINTMENT_LIMIT = 5
-CANCEL_WINDOW_HOURS = 3
-MAX_PASSWORD_BYTES = 72
 
 security = HTTPBearer(auto_error=False)
-
-
-def _validate_password_length(password: str) -> None:
-    if len(password.encode("utf-8")) > MAX_PASSWORD_BYTES:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Password must be at most {MAX_PASSWORD_BYTES} bytes",
-        )
 
 
 @asynccontextmanager
@@ -81,7 +76,6 @@ def health():
 
 @app.post("/auth/register", status_code=201)
 def register(payload: RegisterRequest, db: Session = Depends(get_db)):
-    _validate_password_length(payload.password)
     if db.query(User).filter(User.email == payload.email).first():
         raise HTTPException(status_code=409, detail="Email already registered")
     user = User(
@@ -153,6 +147,9 @@ def create_appointment(
             detail=f"Monthly appointment limit reached ({MONTHLY_APPOINTMENT_LIMIT})",
         )
 
+    start_utc = resolve_appointment_start(payload.day, payload.month, now)
+    assert_min_lead_before_start(start_utc, now)
+
     appt = Appointment(
         user_id=user_id,
         name=payload.name,
@@ -185,15 +182,7 @@ def cancel_appointment(
     if appt.status == "cancelled":
         raise HTTPException(status_code=409, detail="Already cancelled")
 
-    created = appt.created_at
-    if created.tzinfo is None:
-        created = created.replace(tzinfo=timezone.utc)
-    deadline = created + timedelta(hours=CANCEL_WINDOW_HOURS)
-    if datetime.now(timezone.utc) > deadline:
-        raise HTTPException(
-            status_code=409,
-            detail=f"Cancellation window ({CANCEL_WINDOW_HOURS}h) has expired",
-        )
+    assert_may_cancel(appt.created_at)
 
     appt.status = "cancelled"
     db.add(appt)

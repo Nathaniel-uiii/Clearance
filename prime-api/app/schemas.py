@@ -1,10 +1,21 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+from app.baldomar_validation import (
+    MAX_PASSWORD_UTF8_BYTES,
+    validate_address_line,
+    validate_gender_optional,
+    validate_optional_security_answer,
+    validate_password_baldomar,
+    validate_person_name,
+)
 
 
 class RegisterRequest(BaseModel):
+    """username holds full display name (matches prime-next Sign Up field)."""
+
     username: str
     email: EmailStr
     password: str
@@ -12,10 +23,77 @@ class RegisterRequest(BaseModel):
     security_q1: Optional[str] = None
     security_q2: Optional[str] = None
 
+    @field_validator("username")
+    @classmethod
+    def username_as_full_name(cls, v: str) -> str:
+        err = validate_person_name(v, "Full name")
+        if err:
+            raise ValueError(err)
+        return v.strip()
+
+    @field_validator("password")
+    @classmethod
+    def password_baldomar(cls, v: str) -> str:
+        err = validate_password_baldomar(v)
+        if err:
+            raise ValueError(err)
+        return v
+
+    @field_validator("gender", mode="before")
+    @classmethod
+    def gender_empty_to_none(cls, v: object) -> object:
+        if v == "":
+            return None
+        return v
+
+    @field_validator("gender")
+    @classmethod
+    def gender_allowed(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        err = validate_gender_optional(v)
+        if err:
+            raise ValueError(err)
+        return v
+
+    @field_validator("security_q1", "security_q2", mode="before")
+    @classmethod
+    def security_empty_to_none(cls, v: object) -> object:
+        if v == "":
+            return None
+        return v
+
+    @field_validator("security_q1")
+    @classmethod
+    def security_q1_ok(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        err = validate_optional_security_answer(v, "Security answer 1")
+        if err:
+            raise ValueError(err)
+        return v.strip()
+
+    @field_validator("security_q2")
+    @classmethod
+    def security_q2_ok(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        err = validate_optional_security_answer(v, "Security answer 2")
+        if err:
+            raise ValueError(err)
+        return v.strip()
+
 
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+
+    @field_validator("password")
+    @classmethod
+    def login_password_byte_cap(cls, v: str) -> str:
+        if len(v.encode("utf-8")) > MAX_PASSWORD_UTF8_BYTES:
+            raise ValueError("Password is too long.")
+        return v
 
 
 class TokenResponse(BaseModel):
@@ -31,11 +109,35 @@ class MeResponse(BaseModel):
 
 class AppointmentCreateRequest(BaseModel):
     name: str
-    age: int
+    age: int = Field(ge=18, le=120, description="Must be 18+ (Baldomar registration rule).")
     address: str
     day: str
     month: str
     location: str
+
+    @field_validator("name")
+    @classmethod
+    def appointment_name(cls, v: str) -> str:
+        err = validate_person_name(v, "Name")
+        if err:
+            raise ValueError(err)
+        return v.strip()
+
+    @field_validator("address")
+    @classmethod
+    def appointment_address(cls, v: str) -> str:
+        err = validate_address_line(v, "Address")
+        if err:
+            raise ValueError(err)
+        return v.strip()
+
+    @field_validator("location")
+    @classmethod
+    def appointment_location(cls, v: str) -> str:
+        err = validate_address_line(v, "Location")
+        if err:
+            raise ValueError(err)
+        return v.strip()
 
 
 class AppointmentResponse(BaseModel):

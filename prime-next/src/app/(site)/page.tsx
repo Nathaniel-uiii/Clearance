@@ -1,19 +1,24 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import {
-  FormEvent,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiJson, authHeaders } from "@/lib/api";
 import { clearToken, getToken } from "@/lib/auth";
+import {
+  APPOINTMENT_MONTH_NAMES,
+  APPOINTMENT_START_HOUR,
+  APPOINTMENT_TZ,
+  canBookAtLeastHoursAhead,
+  HOURS_AFTER_BOOKING_TO_CANCEL,
+  mayCancelAppointment,
+  MIN_HOURS_BEFORE_APPOINTMENT,
+  parseApiCreatedAtUtcMs,
+  secondsUntilCancelDeadline,
+} from "@/lib/appointmentSchedule";
+import { validateAppointmentBaldomar } from "@/lib/baldomarValidation";
+import { ClearanceDocumentModal } from "@/components/ClearanceDocumentModal";
 
 const MONTHLY_APPOINTMENT_LIMIT = 5;
-const CANCEL_WINDOW_MS = 3 * 60 * 60 * 1000;
 
 export type Appointment = {
   id: number;
@@ -26,6 +31,11 @@ export type Appointment = {
   status: string;
   created_at: string;
 };
+
+type ClearanceModalState =
+  | { open: false }
+  | { open: true; purpose: "booking" }
+  | { open: true; purpose: "view"; appointment: Appointment };
 
 function normalizeAppointmentRow(raw: Record<string, unknown>): Appointment | null {
   const id = Number(raw.id);
@@ -60,18 +70,18 @@ function normalizeAppointmentList(data: unknown): Appointment[] {
   return out;
 }
 
-function secondsUntilCancelDeadline(createdAt: string, now: number): number {
-  const t = new Date(createdAt).getTime();
-  if (Number.isNaN(t)) return 0;
-  const end = t + CANCEL_WINDOW_MS;
-  return Math.max(0, Math.floor((end - now) / 1000));
-}
-
+/** Human-readable countdown; avoids `140:16:45` (total hours as fake clock time). */
 function formatCountdown(totalSeconds: number): string {
-  const h = Math.floor(totalSeconds / 3600);
+  if (totalSeconds <= 0) return "0s";
+  const d = Math.floor(totalSeconds / 86400);
+  const h = Math.floor((totalSeconds % 86400) / 3600);
   const m = Math.floor((totalSeconds % 3600) / 60);
   const s = totalSeconds % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  const p2 = (n: number) => String(n).padStart(2, "0");
+  if (d > 0) return `${d}d ${p2(h)}h ${p2(m)}m ${p2(s)}s`;
+  if (h > 0) return `${h}h ${p2(m)}m ${p2(s)}s`;
+  if (m > 0) return `${m}m ${p2(s)}s`;
+  return `${s}s`;
 }
 
 function statusPillLabel(status: string): string {
@@ -107,25 +117,34 @@ export default function SiteHomePage() {
   const [day, setDay] = useState<number | "">("");
   const [month, setMonth] = useState("");
   const [location, setLocation] = useState("");
+  const [clearanceModal, setClearanceModal] = useState<ClearanceModalState>({ open: false });
+  /** True only after user confirms the sample clearance on this booking attempt (not persisted). */
+  const clearanceBookingDocAckRef = useRef(false);
 
   const days = useMemo(() => Array.from({ length: 31 }, (_, i) => i + 1), []);
-  const months = useMemo(
-    () => [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ],
-    [],
-  );
+
+  const dismissClearanceDoc = useCallback(() => {
+    setClearanceModal({ open: false });
+    if (typeof window === "undefined") return;
+    if (window.location.hash === "#book") {
+      const { pathname, search } = window.location;
+      window.history.replaceState(null, "", pathname + search);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!clearanceModal.open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") dismissClearanceDoc();
+    }
+    document.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [clearanceModal.open, dismissClearanceDoc]);
 
   useEffect(() => {
     setIsAuthed(Boolean(getToken()));
@@ -184,6 +203,77 @@ export default function SiteHomePage() {
     });
   }
 
+  const performAppointmentBook = useCallback(async () => {
+    const token = getToken();
+    if (!token) {
+      setApptError("Please log in to book an appointment.");
+      return;
+    }
+    const ageNum = Number(age);
+    setApptBusy(true);
+    try {
+      const raw = await apiJson<unknown>("/appointments", {
+        method: "POST",
+        headers: { ...authHeaders(token) },
+        body: JSON.stringify({
+          name: fullName,
+          age: ageNum,
+          address,
+          day: String(day),
+          month,
+          location,
+        }),
+      });
+      const created =
+        raw && typeof raw === "object"
+          ? normalizeAppointmentRow(raw as Record<string, unknown>)
+          : null;
+      setFullName("");
+      setAge("");
+      setAddress("");
+      setDay("");
+      setMonth("");
+      setLocation("");
+      clearanceBookingDocAckRef.current = false;
+      if (!created) {
+        setApptError("Booking saved but response was invalid. Refresh the page.");
+        await loadAppointments();
+        return;
+      }
+      try {
+        const listRaw = await apiJson<unknown>("/appointments", {
+          headers: authHeaders(token),
+        });
+        const list = normalizeAppointmentList(listRaw);
+        setAppointments(mergeCreatedIntoList(list, created));
+      } catch {
+        setAppointments((prev) => {
+          const rest = prev.filter((a) => a.id !== created.id);
+          return [created, ...rest];
+        });
+      }
+      setApptSuccess("Appointment saved — it appears in Your Appointments.");
+      window.setTimeout(() => setApptSuccess(null), 6000);
+      appointmentsListRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err: unknown) {
+      setApptError(err instanceof Error ? err.message : "Could not create appointment.");
+    } finally {
+      setApptBusy(false);
+    }
+  }, [fullName, age, address, day, month, location, loadAppointments]);
+
+  const continueAfterClearanceDoc = useCallback(() => {
+    setClearanceModal({ open: false });
+    clearanceBookingDocAckRef.current = true;
+    if (typeof window !== "undefined") {
+      window.location.hash = "book";
+      requestAnimationFrame(() => {
+        document.getElementById("book")?.scrollIntoView({ behavior: "smooth" });
+      });
+    }
+    void performAppointmentBook();
+  }, [performAppointmentBook]);
+
   useEffect(() => {
     if (!isAuthed) {
       setAppointments([]);
@@ -231,55 +321,33 @@ export default function SiteHomePage() {
       setApptError("Please log in to book an appointment.");
       return;
     }
-    setApptBusy(true);
-    try {
-      const raw = await apiJson<unknown>("/appointments", {
-        method: "POST",
-        headers: { ...authHeaders(token) },
-        body: JSON.stringify({
-          name: fullName,
-          age: Number(age),
-          address,
-          day: String(day),
-          month,
-          location,
-        }),
-      });
-      const created =
-        raw && typeof raw === "object"
-          ? normalizeAppointmentRow(raw as Record<string, unknown>)
-          : null;
-      setFullName("");
-      setAge("");
-      setAddress("");
-      setDay("");
-      setMonth("");
-      setLocation("");
-      if (!created) {
-        setApptError("Booking saved but response was invalid. Refresh the page.");
-        await loadAppointments();
-        return;
-      }
-      try {
-        const listRaw = await apiJson<unknown>("/appointments", {
-          headers: authHeaders(token),
-        });
-        const list = normalizeAppointmentList(listRaw);
-        setAppointments(mergeCreatedIntoList(list, created));
-      } catch {
-        setAppointments((prev) => {
-          const rest = prev.filter((a) => a.id !== created.id);
-          return [created, ...rest];
-        });
-      }
-      setApptSuccess("Appointment saved — it appears in Your Appointments.");
-      window.setTimeout(() => setApptSuccess(null), 6000);
-      appointmentsListRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-    } catch (err: unknown) {
-      setApptError(err instanceof Error ? err.message : "Could not create appointment.");
-    } finally {
-      setApptBusy(false);
+    const ageNum = Number(age);
+    const balErr = validateAppointmentBaldomar({
+      fullName,
+      address,
+      location,
+      age: ageNum,
+    });
+    if (balErr) {
+      setApptError(balErr);
+      return;
     }
+    if (day === "" || !month) {
+      setApptError("Please select day and month.");
+      return;
+    }
+    if (!canBookAtLeastHoursAhead(Number(day), month)) {
+      setApptError(
+        `Appointments must be at least ${MIN_HOURS_BEFORE_APPOINTMENT} hours away. ` +
+          `Your date is scheduled at ${String(APPOINTMENT_START_HOUR).padStart(2, "0")}:00 (${APPOINTMENT_TZ}).`,
+      );
+      return;
+    }
+    if (!clearanceBookingDocAckRef.current) {
+      setClearanceModal({ open: true, purpose: "booking" });
+      return;
+    }
+    void performAppointmentBook();
   }
 
   async function cancelAppointment(id: number) {
@@ -326,6 +394,19 @@ export default function SiteHomePage() {
 
   return (
     <div>
+      <ClearanceDocumentModal
+        open={clearanceModal.open}
+        mode={
+          clearanceModal.open && clearanceModal.purpose === "view" ? "view" : "booking"
+        }
+        viewerAppointment={
+          clearanceModal.open && clearanceModal.purpose === "view"
+            ? clearanceModal.appointment
+            : undefined
+        }
+        onContinue={continueAfterClearanceDoc}
+        onDismiss={dismissClearanceDoc}
+      />
       <nav className="nav">
         <div className="nav-logo">
           <a href="#home">PRIME .</a>
@@ -523,7 +604,7 @@ export default function SiteHomePage() {
                       className="input-field"
                       name="age"
                       placeholder="Enter Your Age"
-                      min={1}
+                      min={18}
                       max={120}
                       required
                       value={age}
@@ -608,12 +689,17 @@ export default function SiteHomePage() {
                       onChange={(e) => setMonth(e.target.value)}
                     >
                       <option value="">Select Month</option>
-                      {months.map((m) => (
+                      {APPOINTMENT_MONTH_NAMES.map((m) => (
                         <option key={m} value={m}>
                           {m}
                         </option>
                       ))}
                     </select>
+                    <p className="appointment-schedule-hint">
+                      Date uses {APPOINTMENT_START_HOUR}:00 {APPOINTMENT_TZ}. Book at least{" "}
+                      {MIN_HOURS_BEFORE_APPOINTMENT} hours ahead; cancellation closes within{" "}
+                      {MIN_HOURS_BEFORE_APPOINTMENT} hours of that time.
+                    </p>
                   </div>
 
                   <div className="input-box">
@@ -756,14 +842,21 @@ export default function SiteHomePage() {
                   </div>
                 ) : (
                   appointments.map((a) => {
-                    const remaining = secondsUntilCancelDeadline(
-                      a.created_at,
-                      Date.now(),
-                    );
+                    const nowMs = Date.now();
+                    const createdMs = parseApiCreatedAtUtcMs(a.created_at);
+                    const createdOk = createdMs != null;
+                    const remaining = createdOk
+                      ? secondsUntilCancelDeadline(createdMs, nowMs)
+                      : 0;
                     const st = a.status.toLowerCase();
                     const isDone = st === "done" || st === "completed";
                     const isPending = st === "pending";
-                    const canCancel = isPending && remaining > 0;
+                    const isCancelled = st === "cancelled";
+                    const showViewDocument = isPending || isDone || isCancelled;
+                    const canCancel =
+                      isPending &&
+                      createdOk &&
+                      mayCancelAppointment(createdMs, nowMs);
                     return (
                       <div className="appointment-card" key={a.id}>
                         <div className="appointment-header">
@@ -793,32 +886,49 @@ export default function SiteHomePage() {
                               {canCancel ? (
                                 <>
                                   <p>
-                                    <i className="bx bx-time" /> Time remaining to
-                                    cancel:
+                                    <i className="bx bx-time" /> Time left to cancel (
+                                    {HOURS_AFTER_BOOKING_TO_CANCEL}h after booking):
                                   </p>
                                   <div className="timer-countdown">
                                     {formatCountdown(remaining)}
                                   </div>
                                 </>
+                              ) : !createdOk ? (
+                                <p>
+                                  <i className="bx bx-time-five" /> Could not read booking time for
+                                  the cancel timer.
+                                </p>
                               ) : (
                                 <p>
-                                  <i className="bx bx-time-five" /> Cancellation
-                                  window ended
+                                  <i className="bx bx-time-five" />{" "}
+                                  {HOURS_AFTER_BOOKING_TO_CANCEL}-hour cancellation window has
+                                  ended
                                 </p>
                               )}
                             </div>
                           ) : null}
                         </div>
-                        <div className="appointment-actions">
-                          {isDone ? (
+                        <div
+                          className={`appointment-actions${
+                            showViewDocument && !isPending ? " appointment-actions--single" : ""
+                          }`}
+                        >
+                          {showViewDocument ? (
                             <button
                               type="button"
-                              className="appointment-completed-btn"
-                              disabled
+                              className="view-doc-btn"
+                              onClick={() =>
+                                setClearanceModal({
+                                  open: true,
+                                  purpose: "view",
+                                  appointment: a,
+                                })
+                              }
                             >
-                              Appointment Completed
+                              <i className="bx bx-file-blank" /> View Document
                             </button>
-                          ) : isPending ? (
+                          ) : null}
+                          {isPending ? (
                             <button
                               type="button"
                               className="cancel-btn"
@@ -987,7 +1097,7 @@ export default function SiteHomePage() {
         </div>
       </section>
 
-      <footer>
+      <footer className="site-footer">
         <p>&copy; 2026 PRIME. All Rights Reserved.</p>
       </footer>
     </div>

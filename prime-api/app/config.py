@@ -17,6 +17,10 @@ class Settings(BaseSettings):
         "http://localhost:3002,http://127.0.0.1:3002,"
         "http://localhost,http://127.0.0.1"
     )
+    # Day + month on the form are interpreted as this local date at start hour (Philippines default).
+    APPOINTMENT_TZ: str = "Asia/Manila"
+    APPOINTMENT_START_HOUR: int = 9
+    APPOINTMENT_START_MINUTE: int = 0
 
 
 settings = Settings()

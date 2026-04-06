@@ -70,7 +70,10 @@ export async function apiJson<T>(
         message = body.detail;
       } else if (Array.isArray(body.detail)) {
         message = body.detail
-          .map((d) => (typeof d === "string" ? d : d.msg ?? ""))
+          .map((d) => {
+            const m = typeof d === "string" ? d : (d.msg ?? "");
+            return m.replace(/^Value error,\s*/i, "").trim();
+          })
           .filter(Boolean)
           .join(", ");
       }
