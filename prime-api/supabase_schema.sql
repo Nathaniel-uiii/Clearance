@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS public.users (
     gender VARCHAR(50),
     security_q1 TEXT,
     security_q2 TEXT,
+    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -26,3 +27,19 @@ CREATE TABLE IF NOT EXISTS public.appointments (
 );
 
 CREATE INDEX IF NOT EXISTS ix_appointments_user_id ON public.appointments (user_id);
+
+CREATE TABLE IF NOT EXISTS public.contact_messages (
+    id SERIAL PRIMARY KEY,
+    fullname VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    phone VARCHAR(50),
+    subject VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'new',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_contact_messages_created_at ON public.contact_messages (created_at DESC);
+
+INSERT INTO public.users (email, username, password_hash, gender, security_q1, security_q2, is_admin) 
+VALUES ('admin@admin.com', 'Admin User', '$2b$12$R9h7cIPz0gi.URNNX3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jKMm2', NULL, NULL, NULL, TRUE);

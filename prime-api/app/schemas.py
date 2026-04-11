@@ -105,6 +105,9 @@ class MeResponse(BaseModel):
     id: int
     email: str
     username: str
+    is_admin: bool
+
+    model_config = {"from_attributes": True}
 
 
 class AppointmentCreateRequest(BaseModel):
@@ -152,3 +155,68 @@ class AppointmentResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class ContactMessageCreateRequest(BaseModel):
+    fullname: str
+    email: EmailStr
+    phone: Optional[str] = None
+    subject: str
+    message: str
+
+
+class ContactMessageResponse(BaseModel):
+    id: int
+    fullname: str
+    email: str
+    phone: Optional[str] = None
+    subject: str
+    message: str
+    status: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AdminMessageStatusUpdateRequest(BaseModel):
+    status: str = Field(..., pattern="^(new|read|resolved)$")
+
+
+# Admin-related schemas
+class UserResponse(BaseModel):
+    id: int
+    email: str
+    username: str
+    gender: Optional[str] = None
+    is_admin: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AdminAppointmentResponse(BaseModel):
+    id: int
+    user_id: int
+    name: str
+    age: int
+    address: str
+    day: str
+    month: str
+    location: str
+    status: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AppointmentStatusUpdateRequest(BaseModel):
+    status: str = Field(..., pattern="^(pending|confirmed|completed|cancelled)$")
+
+
+class AdminStatsResponse(BaseModel):
+    total_users: int
+    total_appointments: int
+    pending_appointments: int
+    confirmed_appointments: int
+    completed_appointments: int
+    cancelled_appointments: int

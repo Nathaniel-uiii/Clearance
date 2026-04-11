@@ -118,10 +118,48 @@ export default function SiteHomePage() {
   const [month, setMonth] = useState("");
   const [location, setLocation] = useState("");
   const [clearanceModal, setClearanceModal] = useState<ClearanceModalState>({ open: false });
+  const [contactFullName, setContactFullName] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [contactSubject, setContactSubject] = useState("");
+  const [contactMessage, setContactMessage] = useState("");
+  const [contactBusy, setContactBusy] = useState(false);
+  const [contactError, setContactError] = useState<string | null>(null);
+  const [contactSuccess, setContactSuccess] = useState<string | null>(null);
   /** True only after user confirms the sample clearance on this booking attempt (not persisted). */
   const clearanceBookingDocAckRef = useRef(false);
 
   const days = useMemo(() => Array.from({ length: 31 }, (_, i) => i + 1), []);
+
+  async function handleContactSubmit(e: FormEvent) {
+    e.preventDefault();
+    setContactBusy(true);
+    setContactError(null);
+    setContactSuccess(null);
+
+    try {
+      await apiJson("/contact", {
+        method: "POST",
+        body: JSON.stringify({
+          fullname: contactFullName,
+          email: contactEmail,
+          phone: contactPhone || null,
+          subject: contactSubject,
+          message: contactMessage,
+        }),
+      });
+      setContactSuccess("Message sent. We will respond as soon as possible.");
+      setContactFullName("");
+      setContactEmail("");
+      setContactPhone("");
+      setContactSubject("");
+      setContactMessage("");
+    } catch (err: unknown) {
+      setContactError(err instanceof Error ? err.message : "Failed to send message");
+    } finally {
+      setContactBusy(false);
+    }
+  }
 
   const dismissClearanceDoc = useCallback(() => {
     setClearanceModal({ open: false });
@@ -1062,35 +1100,68 @@ export default function SiteHomePage() {
               </p>
             </div>
 
-            <form action="#" method="POST">
+            <form onSubmit={handleContactSubmit}>
               <h2 className="heading">
                 Contact <span>Us</span>
               </h2>
+
+              {contactError ? <div className="alert error">{contactError}</div> : null}
+              {contactSuccess ? <div className="alert success">{contactSuccess}</div> : null}
+
               <div className="input-group">
                 <div className="input-box">
-                  <input type="text" name="fullname" placeholder="Full Name" />
+                  <input
+                    type="text"
+                    name="fullname"
+                    placeholder="Full Name"
+                    value={contactFullName}
+                    onChange={(e) => setContactFullName(e.target.value)}
+                    required
+                  />
                 </div>
                 <div className="input-box">
                   <input
                     type="email"
                     name="email"
                     placeholder="Email Address"
+                    value={contactEmail}
+                    onChange={(e) => setContactEmail(e.target.value)}
+                    required
                   />
                 </div>
               </div>
               <div className="input-group">
                 <div className="input-box">
-                  <input type="tel" name="phone" placeholder="Phone Number" />
+                  <input
+                    type="tel"
+                    name="phone"
+                    placeholder="Phone Number"
+                    value={contactPhone}
+                    onChange={(e) => setContactPhone(e.target.value)}
+                  />
                 </div>
                 <div className="input-box">
-                  <input type="text" name="subject" placeholder="Subject" />
+                  <input
+                    type="text"
+                    name="subject"
+                    placeholder="Subject"
+                    value={contactSubject}
+                    onChange={(e) => setContactSubject(e.target.value)}
+                    required
+                  />
                 </div>
               </div>
               <div className="input-box">
-                <textarea name="message" placeholder="Your Message" />
+                <textarea
+                  name="message"
+                  placeholder="Your Message"
+                  value={contactMessage}
+                  onChange={(e) => setContactMessage(e.target.value)}
+                  required
+                />
               </div>
-              <button type="submit" className="submit-btn">
-                Send Message <i className="bx bx-send" />
+              <button type="submit" className="submit-btn" disabled={contactBusy}>
+                {contactBusy ? "Sending..." : "Send Message"} <i className="bx bx-send" />
               </button>
             </form>
           </div>

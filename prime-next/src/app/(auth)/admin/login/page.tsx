@@ -2,8 +2,8 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiJson } from "@/lib/api";
-import { setToken } from "@/lib/auth";
+import { apiJson, getApiUrl } from "@/lib/api";
+import { setToken, clearToken } from "@/lib/auth";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -24,8 +24,20 @@ export default function AdminLoginPage() {
           body: JSON.stringify({ email, password }),
         },
       );
-      setToken(data.access_token);
-      router.push("/");
+      const token = data.access_token;
+      setToken(token);
+
+      const res = await fetch(getApiUrl("/me"), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const me = await res.json();
+      if (!res.ok || !me.is_admin) {
+        clearToken();
+        setMessage("Admin access required");
+        return;
+      }
+
+      router.push("/admin");
     } catch (err: unknown) {
       setMessage(err instanceof Error ? err.message : "Login failed");
     } finally {

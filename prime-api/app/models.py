@@ -14,6 +14,7 @@ class User(Base):
     gender: Mapped[str | None] = mapped_column(String(50), nullable=True)
     security_q1: Mapped[str | None] = mapped_column(Text, nullable=True)
     security_q2: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_admin: Mapped[bool] = mapped_column(default=False, server_default="0")
     created_at: Mapped[object] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -31,6 +32,21 @@ class Appointment(Base):
     month: Mapped[str] = mapped_column(String(50))
     location: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(50), default="pending")
+    created_at: Mapped[object] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class ContactMessage(Base):
+    __tablename__ = "contact_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    fullname: Mapped[str] = mapped_column(String(255))
+    email: Mapped[str] = mapped_column(String(255))
+    phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    subject: Mapped[str] = mapped_column(String(255))
+    message: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(50), default="new")
     created_at: Mapped[object] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

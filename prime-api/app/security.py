@@ -29,3 +29,8 @@ def decode_user_id(token: str) -> int:
         token, settings.JWT_SECRET, algorithms=[settings.JWT_ALG]
     )
     return int(payload["sub"])
+
+
+def check_is_admin(user) -> bool:
+    """Check if user has admin privileges."""
+    return getattr(user, "is_admin", False)
