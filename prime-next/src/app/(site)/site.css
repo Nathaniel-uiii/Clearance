@@ -11,10 +11,8 @@ html{
     scroll-behavior: smooth;
 }
 body{
-    background: url("/images/city.jpg");
-    background-size: cover;
-    background-repeat: no-repeat;
-    background-attachment: fixed;
+    background: #ffffff;
+    color: #111827;
 }
 .wrapper{
     display: flex;
@@ -776,10 +774,10 @@ form {
 .appointment-form {
     flex: 0 1 auto;
     min-width: 0;
-    width: min(460px, 100%);
-    max-width: min(460px, 100%);
+    width: min(400px, 100%);
+    max-width: min(400px, 100%);
     background: linear-gradient(135deg, rgba(34, 40, 49, 0.92) 60%, rgba(44, 62, 80, 0.85) 100%);
-    padding: clamp(10px, 1.4vw, 14px) clamp(12px, 1.6vw, 16px);
+    padding: 10px 12px;
     border-radius: 12px;
     backdrop-filter: blur(5px);
     box-shadow: 0 4px 18px rgba(0, 0, 0, 0.2);
@@ -889,11 +887,11 @@ form {
 .form-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 6px 8px;
+    gap: 4px 6px;
 }
 
 .input-box {
-    margin-bottom: 6px;
+    margin-bottom: 4px;
 }
 
 .input-box label {
@@ -1341,6 +1339,9 @@ section#book .appointment-form .form-box,
     max-height: none !important;
     z-index: auto !important;
     position: relative;
+    display: block !important;
+    width: 100%;
+    padding: 6px 4px;
 }
 
 @media (max-width: 900px) {
@@ -1379,21 +1380,41 @@ section#book .appointment-form .form-box,
     justify-content: center;
     padding: 0 7%;
     position: relative;
-    background: linear-gradient(135deg, rgba(26, 26, 26, 0.93), rgba(45, 45, 45, 0.93));
+    isolation: isolate;
+    background-color: #f1f5f9;
+    background-image: url("/images/6a82b4f63a7a4ca7a4bf2f079f9670c0.jpg");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.home::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.88),
+        rgba(241, 245, 249, 0.72)
+    );
 }
 
 .home .content {
+    position: relative;
+    z-index: 1;
     max-width: 800px;
-    color: #fff;
+    color: #111827;
     padding: 2rem;
     text-align: center;
     animation: fadeIn 1s ease-out;
     margin: 0 auto;
-    background: linear-gradient(135deg, rgba(34, 40, 49, 0.92) 60%, rgba(44, 62, 80, 0.85) 100%);
+    background: #ffffff;
     border-radius: 12px;
-    backdrop-filter: blur(6px);
-    border: 1px solid rgba(76, 175, 80, 0.13);
-    box-shadow: 0 4px 20px rgba(76, 175, 80, 0.08);
+    backdrop-filter: none;
+    border: 3px solid #94a3b8;
+    box-shadow: none;
 }
 
 .home .content h1 {
@@ -1401,11 +1422,11 @@ section#book .appointment-form .form-box,
     margin-bottom: 1rem;
     line-height: 1.2;
     font-weight: 700;
-    color: #fff;
+    color: #111827;
 }
 
 .home .content h1 span {
-    color: #4CAF50;
+    color: #0b3d91;
     position: relative;
 }
 
@@ -1417,7 +1438,7 @@ section#book .appointment-form .form-box,
     transform: translateX(-50%);
     width: 50%;
     height: 2px;
-    background: #4CAF50;
+    background: #0b3d91;
     border-radius: 2px;
 }
 
@@ -1425,7 +1446,7 @@ section#book .appointment-form .form-box,
     font-size: 0.95rem;
     margin-bottom: 2rem;
     line-height: 1.6;
-    color: rgba(255, 255, 255, 0.9);
+    color: #374151;
 }
 
 .home-buttons {
@@ -2025,6 +2046,241 @@ section#book .appointment-form .form-box,
 .clearance-document-preview__meta-label {
     font-weight: 700;
     color: #222;
+}
+
+/* ------------------------------
+   Classic light theme override
+   Palette: blue, white, black
+------------------------------ */
+body {
+    background: #ffffff;
+    color: #111827;
+}
+
+.nav {
+    background: #0b3d91;
+    box-shadow: none;
+}
+
+.nav-logo a,
+.nav-menu ul li .link,
+.logout {
+    color: #ffffff;
+}
+
+.link:hover,
+.active {
+    border-bottom: 2px solid #ffffff;
+}
+
+section:not(.home) {
+    background: #ffffff;
+}
+
+.services-section,
+.book-section,
+.team-section,
+.contact {
+    background: #ffffff;
+}
+
+.home .content,
+.service-card,
+.team-card,
+.appointment-form,
+.appointment-details,
+.monthly-limit-panel,
+.contact-info,
+.contact form {
+    background: #ffffff;
+    border: 3px solid #94a3b8;
+    box-shadow: none;
+    backdrop-filter: none;
+}
+
+.input-field,
+.contact .input-box input,
+.contact .input-box textarea,
+.contact .input-box select {
+    background: #e5e7eb;
+    color: #111827;
+    border: 2px solid #9ca3af;
+}
+
+.input-field:focus,
+.contact .input-box input:focus,
+.contact .input-box textarea:focus,
+.contact .input-box select:focus {
+    background: #d1d5db;
+    border: 2px solid #0b3d91;
+}
+
+.home .content h1,
+.home .content p,
+.service-content h3,
+.service-content p,
+.team-info h3,
+.team-info .role,
+.team-info .description,
+.contact .heading,
+.contact-info h3,
+.contact-info p,
+.form-box h1,
+.input-box label,
+.monthly-limit-panel__title,
+.monthly-limit-panel__footer,
+.monthly-stat-label,
+.monthly-stat-denom {
+    color: #111827;
+}
+
+.home .content h1 span,
+.services-title,
+.team-title,
+.contact .heading span,
+.monthly-stat-value,
+.appointments-panel-header__title,
+.appointment-header h3 {
+    color: #0b3d91;
+}
+
+.services-title:after,
+.team-title:after,
+.contact .heading:after,
+.contact-info h3::after,
+.home .content h1 span::after {
+    background: #0b3d91;
+}
+
+.service-icon,
+.team-img {
+    background: #dbeafe;
+    box-shadow: none;
+}
+
+.service-icon::after,
+.feature i,
+.contact-info i {
+    color: #0b3d91;
+}
+
+.feature span {
+    color: #111827;
+}
+
+.primary-btn,
+.submit-btn,
+.contact .submit-btn,
+.view-doc-btn {
+    background: #0b3d91;
+    color: #ffffff;
+    border: 1px solid #0b3d91;
+    box-shadow: none;
+    transform: none;
+}
+
+.appointment-form .submit-btn {
+    margin-top: 6px;
+}
+
+.appointment-form .appointment-schedule-hint {
+    margin-top: 4px;
+    font-size: 0.7em;
+    line-height: 1.2;
+}
+
+.primary-btn:hover,
+.submit-btn:hover,
+.contact .submit-btn:hover,
+.view-doc-btn:hover {
+    background: #0a357c;
+    box-shadow: none;
+    transform: none;
+}
+
+.secondary-btn {
+    background: #ffffff;
+    color: #0b3d91;
+    border: 1px solid #0b3d91;
+}
+
+.secondary-btn:hover {
+    background: #eff6ff;
+    transform: none;
+}
+
+.appointments-panel-header__title {
+    background: #eff6ff;
+    border: 1px solid #93c5fd;
+}
+
+.appointment-card {
+    background: #f8fafc;
+    border: 1px solid #dbeafe;
+}
+
+.appointment-card:hover {
+    background: #f1f5f9;
+    border-color: #93c5fd;
+}
+
+.appointment-info p,
+.appointment-info strong,
+.appointment-date,
+.no-appointments {
+    color: #111827;
+}
+
+.status-badge {
+    background: #e5e7eb;
+    color: #111827;
+}
+
+.status-pending {
+    background: #dbeafe;
+    color: #0b3d91;
+}
+
+.status-done {
+    background: #bfdbfe;
+    color: #0b3d91;
+}
+
+.status-cancelled {
+    background: #e5e7eb;
+    color: #1f2937;
+}
+
+.timer-active {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+}
+
+.timer-expired {
+    background: #f3f4f6;
+    color: #4b5563;
+}
+
+.cancel-btn {
+    background: #111827;
+    color: #ffffff;
+}
+
+.cancel-btn:not(:disabled):hover {
+    background: #000000;
+}
+
+.book-error {
+    color: #b91c1c;
+}
+
+.book-success {
+    color: #0b3d91;
+}
+
+.site-footer {
+    color: #ffffff;
+    background: #0b3d91;
 }
 
 @media (max-width: 640px) {
