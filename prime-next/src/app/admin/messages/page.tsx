@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getToken } from "@/lib/auth";
+import { getAdminToken } from "@/lib/auth";
 import { getApiUrl } from "@/lib/api";
 import "@/app/(auth)/auth.css";
-import "./admin.css";
+import "../admin.css";
 
 interface Message {
   id: number;
@@ -33,7 +33,7 @@ export default function AdminMessagesPage() {
   }, []);
 
   function loadMessages() {
-    const token = getToken();
+    const token = getAdminToken();
     if (!token) {
       router.push("/admin/login");
       return;
@@ -127,7 +127,7 @@ export default function AdminMessagesPage() {
                       style={{ marginLeft: 8 }}
                       onClick={async () => {
                         if (!confirm("Delete this message?")) return;
-                        const token = getToken();
+                        const token = getAdminToken();
                         if (!token) return;
                         const res = await fetch(getApiUrl(`/admin/messages/${msg.id}`), {
                           method: "DELETE",

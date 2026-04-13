@@ -886,8 +886,19 @@ form {
 
 .form-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(6, 1fr);
     gap: 4px 6px;
+}
+
+#book .form-grid .input-box:nth-child(1),
+#book .form-grid .input-box:nth-child(2),
+#book .form-grid .input-box:nth-child(3) {
+    grid-column: span 2;
+}
+
+#book .form-grid .input-box:nth-child(4),
+#book .form-grid .input-box:nth-child(5) {
+    grid-column: span 3;
 }
 
 .input-box {
@@ -1289,19 +1300,20 @@ form {
     border-radius: 8px;
     border: none;
     cursor: pointer;
-    background: rgba(244, 67, 54, 0.65);
+    background: rgba(244, 67, 54, 0.9);
     color: #fff;
     display: inline-flex;
     align-items: center;
     gap: 6px;
     transition: background 0.2s;
+    font-weight: 600;
 }
 .cancel-btn:disabled {
     opacity: 0.45;
     cursor: not-allowed;
 }
 .cancel-btn:not(:disabled):hover {
-    background: rgba(244, 67, 54, 0.9);
+    background: #dc3545;
 }
 .book-error {
     color: #ffcdd2;

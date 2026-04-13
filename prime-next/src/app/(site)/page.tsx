@@ -114,8 +114,7 @@ export default function SiteHomePage() {
   const [fullName, setFullName] = useState("");
   const [age, setAge] = useState("");
   const [address, setAddress] = useState("");
-  const [day, setDay] = useState<number | "">("");
-  const [month, setMonth] = useState("");
+  const [appointmentDate, setAppointmentDate] = useState("");
   const [location, setLocation] = useState("");
   const [clearanceModal, setClearanceModal] = useState<ClearanceModalState>({ open: false });
   const [contactFullName, setContactFullName] = useState("");
@@ -128,8 +127,6 @@ export default function SiteHomePage() {
   const [contactSuccess, setContactSuccess] = useState<string | null>(null);
   /** True only after user confirms the sample clearance on this booking attempt (not persisted). */
   const clearanceBookingDocAckRef = useRef(false);
-
-  const days = useMemo(() => Array.from({ length: 31 }, (_, i) => i + 1), []);
 
   async function handleContactSubmit(e: FormEvent) {
     e.preventDefault();
@@ -247,6 +244,23 @@ export default function SiteHomePage() {
       setApptError("Please log in to book an appointment.");
       return;
     }
+
+    // Parse the date YYYY-MM-DD to day and month name
+    if (!appointmentDate) {
+      setApptError("Please select a pickup date.");
+      return;
+    }
+
+    const [year, monthStr, dayStr] = appointmentDate.split("-");
+    const dayNum = parseInt(dayStr, 10);
+    const monthNum = parseInt(monthStr, 10) - 1; // Convert to 0-indexed
+    const monthName = APPOINTMENT_MONTH_NAMES[monthNum];
+
+    if (!monthName) {
+      setApptError("Invalid date selected.");
+      return;
+    }
+
     const ageNum = Number(age);
     setApptBusy(true);
     try {
@@ -257,8 +271,8 @@ export default function SiteHomePage() {
           name: fullName,
           age: ageNum,
           address,
-          day: String(day),
-          month,
+          day: String(dayNum),
+          month: monthName,
           location,
         }),
       });
@@ -269,8 +283,7 @@ export default function SiteHomePage() {
       setFullName("");
       setAge("");
       setAddress("");
-      setDay("");
-      setMonth("");
+      setAppointmentDate("");
       setLocation("");
       clearanceBookingDocAckRef.current = false;
       if (!created) {
@@ -298,7 +311,7 @@ export default function SiteHomePage() {
     } finally {
       setApptBusy(false);
     }
-  }, [fullName, age, address, day, month, location, loadAppointments]);
+  }, [fullName, age, address, appointmentDate, location, loadAppointments]);
 
   const continueAfterClearanceDoc = useCallback(() => {
     setClearanceModal({ open: false });
@@ -421,7 +434,7 @@ export default function SiteHomePage() {
     );
 
     const cards = document.querySelectorAll(
-      ".service-card, .team-card, .appointment-card",
+      ".service-card, .appointment-card",
     );
     const inputBoxes = document.querySelectorAll(".contact .input-box");
 
@@ -464,11 +477,6 @@ export default function SiteHomePage() {
             <li>
               <a href="#book" className="link">
                 Book
-              </a>
-            </li>
-            <li>
-              <a href="#team" className="link">
-                Team
               </a>
             </li>
             <li>
@@ -696,47 +704,21 @@ export default function SiteHomePage() {
                   </div>
 
                   <div className="input-box">
-                    <label htmlFor="day">Day</label>
-                    <select
-                      id="day"
-                      className="input-field custom-select"
-                      name="day"
+                    <label htmlFor="appointmentDate">Pickup Date</label>
+                    <input
+                      type="date"
+                      id="appointmentDate"
+                      className="input-field"
+                      name="appointmentDate"
                       required
-                      value={day === "" ? "" : String(day)}
-                      onChange={(e) =>
-                        setDay(e.target.value === "" ? "" : Number(e.target.value))
-                      }
-                    >
-                      <option value="">Select Date</option>
-                      {days.map((d) => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="input-box">
-                    <label htmlFor="month">Month</label>
-                    <select
-                      id="month"
-                      className="input-field custom-select"
-                      name="month"
-                      required
-                      value={month}
-                      onChange={(e) => setMonth(e.target.value)}
-                    >
-                      <option value="">Select Month</option>
-                      {APPOINTMENT_MONTH_NAMES.map((m) => (
-                        <option key={m} value={m}>
-                          {m}
-                        </option>
-                      ))}
-                    </select>
+                      value={appointmentDate}
+                      onChange={(e) => setAppointmentDate(e.target.value)}
+                      min={new Date().toISOString().split("T")[0]}
+                    />
                     <p className="appointment-schedule-hint">
                       Date uses {APPOINTMENT_START_HOUR}:00 {APPOINTMENT_TZ}. Book at least{" "}
                       {MIN_HOURS_BEFORE_APPOINTMENT} hours ahead; cancellation closes within{" "}
-                      {MIN_HOURS_BEFORE_APPOINTMENT} hours of that time.
+                      {MIN_HOURS_BEFORE_APPOINTMENT} hours of booking.
                     </p>
                   </div>
 
@@ -1012,40 +994,6 @@ export default function SiteHomePage() {
                   ? "You have reached your monthly appointment limit."
                   : `You can book ${monthlyRemaining} more appointment${monthlyRemaining === 1 ? "" : "s"} this month.`}
               </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="team" className="team-section">
-        <div className="team-container">
-          <h2 className="team-title">Our Team</h2>
-          <div className="team-cards">
-            <div className="team-card">
-              <div className="team-img">
-                <img src="/images/nel.jpg" alt="Nathaniel Palco" />
-              </div>
-              <div className="team-info">
-                <h3>Nathaniel Palco</h3>
-                <div className="role">Lead Developer</div>
-                <div className="description">
-                  Leads document processing and oversees technical system
-                  management.
-                </div>
-              </div>
-            </div>
-
-            <div className="team-card">
-              <div className="team-img">
-                <img src="/images/ken.jpg" alt="Kenneth Baldomar" />
-              </div>
-              <div className="team-info">
-                <h3>Kenneth Baldomar</h3>
-                <div className="role">System Administrator</div>
-                <div className="description">
-                  Supervises appointments and ensures user support availability.
-                </div>
-              </div>
             </div>
           </div>
         </div>

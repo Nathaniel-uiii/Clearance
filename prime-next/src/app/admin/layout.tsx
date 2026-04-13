@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getToken, clearToken } from "@/lib/auth";
+import { getAdminToken, clearAdminToken } from "@/lib/auth";
 import { getApiUrl } from "@/lib/api";
 import "@/app/(auth)/auth.css";
 import "./admin.css";
@@ -18,7 +18,7 @@ export default function AdminLayout({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = getToken();
+    const token = getAdminToken();
     if (!token) {
       router.push("/admin/login");
       return;
@@ -37,12 +37,12 @@ export default function AdminLayout({
           setUser(data);
           setLoading(false);
         } else {
-          clearToken();
+          clearAdminToken();
           router.push("/admin/login");
         }
       })
       .catch(() => {
-        clearToken();
+        clearAdminToken();
         router.push("/admin/login");
       });
   }, [router]);
@@ -78,7 +78,7 @@ export default function AdminLayout({
             <span>{user.email}</span>
             <button
               onClick={() => {
-                clearToken();
+                clearAdminToken();
                 router.push("/login");
               }}
             >

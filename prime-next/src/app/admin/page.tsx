@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getToken } from "@/lib/auth";
+import { getAdminToken } from "@/lib/auth";
 import { getApiUrl } from "@/lib/api";
 
 interface Stats {
@@ -21,7 +21,7 @@ export default function AdminDashboard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = getToken();
+    const token = getAdminToken();
     if (!token) {
       router.push("/admin/login");
       return;

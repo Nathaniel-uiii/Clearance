@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiJson, getApiUrl } from "@/lib/api";
-import { setToken, clearToken } from "@/lib/auth";
+import { setAdminToken, clearAdminToken } from "@/lib/auth";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -25,14 +25,14 @@ export default function AdminLoginPage() {
         },
       );
       const token = data.access_token;
-      setToken(token);
+      setAdminToken(token);
 
       const res = await fetch(getApiUrl("/me"), {
         headers: { Authorization: `Bearer ${token}` },
       });
       const me = await res.json();
       if (!res.ok || !me.is_admin) {
-        clearToken();
+        clearAdminToken();
         setMessage("Admin access required");
         return;
       }

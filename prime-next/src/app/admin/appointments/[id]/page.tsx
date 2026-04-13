@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { getToken } from "@/lib/auth";
+import { getAdminToken } from "@/lib/auth";
 import { getApiUrl } from "@/lib/api";
 
 interface Appointment {
@@ -39,7 +39,7 @@ export default function AppointmentDetailPage() {
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
-    const token = getToken();
+    const token = getAdminToken();
     if (!token) {
       router.push("/admin/login");
       return;
@@ -70,7 +70,7 @@ export default function AppointmentDetailPage() {
   }, [appointmentId, router]);
 
   async function updateStatus(newStatus: string) {
-    const token = getToken();
+    const token = getAdminToken();
     if (!token) return;
 
     try {

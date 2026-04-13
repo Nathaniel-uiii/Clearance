@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { getToken } from "@/lib/auth";
+import { getAdminToken } from "@/lib/auth";
 import { getApiUrl } from "@/lib/api";
 
 interface User {
@@ -39,7 +39,7 @@ export default function UserDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = getToken();
+    const token = getAdminToken();
     if (!token) {
       router.push("/admin/login");
       return;
