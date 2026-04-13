@@ -12,6 +12,15 @@ from app.baldomar_validation import (
     validate_person_name,
 )
 
+APPOINTMENT_DOCUMENT_TYPES = frozenset(
+    {
+        "Barangay Clearance",
+        "Business Permit",
+        "Certificate of Indigency",
+        "Proof of Residency",
+    }
+)
+
 
 class RegisterRequest(BaseModel):
     """username holds full display name (matches prime-next Sign Up field)."""
@@ -117,6 +126,7 @@ class AppointmentCreateRequest(BaseModel):
     day: str
     month: str
     location: str
+    document_type: str
 
     @field_validator("name")
     @classmethod
@@ -142,6 +152,14 @@ class AppointmentCreateRequest(BaseModel):
             raise ValueError(err)
         return v.strip()
 
+    @field_validator("document_type")
+    @classmethod
+    def appointment_document_type(cls, v: str) -> str:
+        s = v.strip()
+        if s not in APPOINTMENT_DOCUMENT_TYPES:
+            raise ValueError("Invalid document type.")
+        return s
+
 
 class AppointmentResponse(BaseModel):
     id: int
@@ -151,6 +169,7 @@ class AppointmentResponse(BaseModel):
     day: str
     month: str
     location: str
+    document_type: str
     status: str
     created_at: datetime
 
@@ -203,6 +222,7 @@ class AdminAppointmentResponse(BaseModel):
     day: str
     month: str
     location: str
+    document_type: str
     status: str
     created_at: datetime
 

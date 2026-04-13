@@ -31,6 +31,7 @@ class Appointment(Base):
     day: Mapped[str] = mapped_column(String(50))
     month: Mapped[str] = mapped_column(String(50))
     location: Mapped[str] = mapped_column(Text)
+    document_type: Mapped[str] = mapped_column(String(100))
     status: Mapped[str] = mapped_column(String(50), default="pending")
     created_at: Mapped[object] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

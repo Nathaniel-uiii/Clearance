@@ -8,7 +8,13 @@ from sqlalchemy import extract, func
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.db import Base, engine, get_db
+from app.db import (
+    Base,
+    engine,
+    get_db,
+    ensure_default_admin_user,
+    run_startup_migrations,
+)
 from app.models import Appointment, ContactMessage, User
 from app.schemas import (
     AppointmentCreateRequest,
@@ -46,6 +52,8 @@ security = HTTPBearer(auto_error=False)
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     Base.metadata.create_all(bind=engine)
+    run_startup_migrations()
+    ensure_default_admin_user()
     yield
 
 
@@ -55,6 +63,8 @@ _origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins,
+    # Next.js often uses other ports (3003, 3004, …); allow any localhost origin in dev
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -190,6 +200,7 @@ def create_appointment(
         day=payload.day,
         month=payload.month,
         location=payload.location,
+        document_type=payload.document_type,
         status="pending",
     )
     db.add(appt)

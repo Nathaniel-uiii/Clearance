@@ -22,11 +22,17 @@ CREATE TABLE IF NOT EXISTS public.appointments (
     day VARCHAR(50) NOT NULL,
     month VARCHAR(50) NOT NULL,
     location TEXT NOT NULL,
+    document_type VARCHAR(100) NOT NULL,
     status VARCHAR(50) NOT NULL DEFAULT 'pending',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS ix_appointments_user_id ON public.appointments (user_id);
+
+-- Existing databases: add document type (run once if `appointments` predates this column).
+-- ALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS document_type VARCHAR(100);
+-- UPDATE public.appointments SET document_type = 'Barangay Clearance' WHERE document_type IS NULL;
+-- ALTER TABLE public.appointments ALTER COLUMN document_type SET NOT NULL;
 
 CREATE TABLE IF NOT EXISTS public.contact_messages (
     id SERIAL PRIMARY KEY,
@@ -41,5 +47,14 @@ CREATE TABLE IF NOT EXISTS public.contact_messages (
 
 CREATE INDEX IF NOT EXISTS ix_contact_messages_created_at ON public.contact_messages (created_at DESC);
 
-INSERT INTO public.users (email, username, password_hash, gender, security_q1, security_q2, is_admin) 
-VALUES ('admin@admin.com', 'Admin User', '$2b$12$R9h7cIPz0gi.URNNX3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jKMm2', NULL, NULL, NULL, TRUE);
+-- Default admin: email admin@admin.com / password admin123 (change after first login in production)
+INSERT INTO public.users (email, username, password_hash, gender, security_q1, security_q2, is_admin)
+VALUES (
+    'admin@admin.com',
+    'Admin User',
+    '$2b$12$QVo2B92zlxpXBp3nf/B4luDY77AxJN3AeYe3E50rYvyRjbO/H.j1W',
+    NULL,
+    NULL,
+    NULL,
+    TRUE
+);
