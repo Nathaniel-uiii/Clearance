@@ -117,6 +117,7 @@ export default function SiteHomePage() {
   const [address, setAddress] = useState("");
   const [appointmentDate, setAppointmentDate] = useState("");
   const [location, setLocation] = useState("");
+  const [documentType, setDocumentType] = useState("");
   const [clearanceModal, setClearanceModal] = useState<ClearanceModalState>({ open: false });
   const [contactFullName, setContactFullName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
@@ -294,6 +295,7 @@ export default function SiteHomePage() {
           day: String(dayNum),
           month: monthName,
           location,
+          document_type: documentType,
         }),
       });
       const created =
@@ -305,6 +307,7 @@ export default function SiteHomePage() {
       setAddress("");
       setAppointmentDate("");
       setLocation("");
+      setDocumentType("");
       clearanceBookingDocAckRef.current = false;
       if (!created) {
         setApptError("Booking saved but response was invalid. Refresh the page.");
@@ -331,7 +334,7 @@ export default function SiteHomePage() {
     } finally {
       setApptBusy(false);
     }
-  }, [fullName, age, address, appointmentDate, location, loadAppointments]);
+  }, [fullName, age, address, appointmentDate, location, documentType, loadAppointments]);
 
   const continueAfterClearanceDoc = useCallback(() => {
     setClearanceModal({ open: false });
@@ -403,11 +406,26 @@ export default function SiteHomePage() {
       setApptError(balErr);
       return;
     }
-    if (day === "" || !month) {
+    
+    // Parse the date YYYY-MM-DD to day and month name
+    if (!appointmentDate) {
+      setApptError("Please select a date.");
+      return;
+    }
+    const [year, monthStr, dayStr] = appointmentDate.split("-");
+    const dayNum = parseInt(dayStr, 10);
+    const monthNum = parseInt(monthStr, 10) - 1; // Convert to 0-indexed
+    const monthName = APPOINTMENT_MONTH_NAMES[monthNum];
+    
+    if (!dayNum || !monthName) {
       setApptError("Please select day and month.");
       return;
     }
-    if (!canBookAtLeastHoursAhead(Number(day), month)) {
+    if (!documentType) {
+      setApptError("Please select a document type.");
+      return;
+    }
+    if (!canBookAtLeastHoursAhead(dayNum, monthName)) {
       setApptError(
         `Appointments must be at least ${MIN_HOURS_BEFORE_APPOINTMENT} hours away. ` +
           `Your date is scheduled at ${String(APPOINTMENT_START_HOUR).padStart(2, "0")}:00 (${APPOINTMENT_TZ}).`,
@@ -896,6 +914,24 @@ export default function SiteHomePage() {
                       <option value="Tolosa, Cabadbaran City">
                         Tolosa, Cabadbaran City
                       </option>
+                    </select>
+                  </div>
+
+                  <div className="input-box">
+                    <label htmlFor="documentType">Document Type</label>
+                    <select
+                      id="documentType"
+                      className="input-field custom-select"
+                      name="documentType"
+                      required
+                      value={documentType}
+                      onChange={(e) => setDocumentType(e.target.value)}
+                    >
+                      <option value="">Select Document Type</option>
+                      <option value="Barangay Clearance">Barangay Clearance</option>
+                      <option value="Certificate of Indigency">Certificate of Indigency</option>
+                      <option value="Business Permit">Business Permit</option>
+                      <option value="Proof of Residency">Proof of Residency</option>
                     </select>
                   </div>
                 </div>

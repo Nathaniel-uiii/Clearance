@@ -14,6 +14,10 @@ export function getApiUrl(path: string): string {
   return path.startsWith("http") ? path : `${API_BASE}${path}`;
 }
 
+if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+  console.info("[API] using base URL:", API_BASE);
+}
+
 export function authHeaders(token: string | null): Record<string, string> {
   if (!token) return {};
   return { Authorization: `Bearer ${token}` };

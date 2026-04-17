@@ -240,7 +240,7 @@ section{
     width: 100%;
     background: rgba(39, 39, 39, 0.4);
     flex-direction: column;
-    overflow-y: auto;
+    overflow-y: hidden;
     overflow-x: hidden;
     padding-top: 70px;
 }

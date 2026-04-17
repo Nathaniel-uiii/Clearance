@@ -12,6 +12,10 @@ interface Stats {
   confirmed_appointments: number;
   completed_appointments: number;
   cancelled_appointments: number;
+  new_users_today: number;
+  appointments_today: number;
+  appointments_last_7_days: number;
+  appointments_by_document_type: Record<string, number>;
 }
 
 export default function AdminDashboard() {
@@ -111,6 +115,33 @@ export default function AdminDashboard() {
           <h3>Cancelled Appointments</h3>
           <div className="stat-value">{stats.cancelled_appointments}</div>
         </div>
+
+        <div className="stat-card">
+          <h3>New Users Today</h3>
+          <div className="stat-value">{stats.new_users_today}</div>
+        </div>
+
+        <div className="stat-card">
+          <h3>Appointments Today</h3>
+          <div className="stat-value">{stats.appointments_today}</div>
+        </div>
+
+        <div className="stat-card">
+          <h3>Appointments Last 7 Days</h3>
+          <div className="stat-value">{stats.appointments_last_7_days}</div>
+        </div>
+      </div>
+
+      <div className="admin-header">
+        <h2>Appointment Breakdown</h2>
+      </div>
+      <div className="admin-breakdown">
+        {Object.entries(stats.appointments_by_document_type).map(([type, count]) => (
+          <div key={type} className="stat-card breakdown-card">
+            <h3>{type}</h3>
+            <div className="stat-value">{count}</div>
+          </div>
+        ))}
       </div>
 
       <div className="admin-header">

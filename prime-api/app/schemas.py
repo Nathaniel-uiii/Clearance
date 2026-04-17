@@ -212,3 +212,7 @@ class AdminStatsResponse(BaseModel):
     confirmed_appointments: int
     completed_appointments: int
     cancelled_appointments: int
+    new_users_today: int
+    appointments_today: int
+    appointments_last_7_days: int
+    appointments_by_document_type: dict[str, int]
