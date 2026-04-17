@@ -37,6 +37,27 @@ def run_startup_migrations() -> None:
     dialect = engine.dialect.name
     with engine.begin() as conn:
         if dialect == "sqlite":
+            # Check if users table exists
+            users_exist = conn.execute(
+                text(
+                    "SELECT COUNT(*) FROM sqlite_master "
+                    "WHERE type='table' AND name='users'"
+                )
+            ).scalar()
+            
+            if users_exist:
+                # Add is_email_verified column to users table if it doesn't exist
+                user_cols = conn.execute(text("PRAGMA table_info(users)")).fetchall()
+                user_names = {row[1] for row in user_cols}
+                if "is_email_verified" not in user_names:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE users ADD COLUMN is_email_verified "
+                            "BOOLEAN NOT NULL DEFAULT 0"
+                        )
+                    )
+            
+            # Check for appointments table migration
             n = conn.execute(
                 text(
                     "SELECT COUNT(*) FROM sqlite_master "
@@ -56,6 +77,27 @@ def run_startup_migrations() -> None:
                 )
             )
         elif dialect == "postgresql":
+            # Add is_email_verified column to users table
+            conn.execute(
+                text(
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+                    "is_email_verified BOOLEAN DEFAULT FALSE"
+                )
+            )
+            
+            conn.execute(
+                text(
+                    "ALTER TABLE IF EXISTS password_reset_otps "
+                    "ALTER COLUMN otp_code TYPE VARCHAR(64)"
+                )
+            )
+            conn.execute(
+                text(
+                    "ALTER TABLE IF EXISTS email_verification_otps "
+                    "ALTER COLUMN otp_code TYPE VARCHAR(64)"
+                )
+            )
+            
             conn.execute(
                 text(
                     "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS "
@@ -91,34 +133,50 @@ _DEFAULT_ADMIN_PASSWORD = "admin123"
 
 def ensure_default_admin_user() -> None:
     """Create admin@admin.com if missing; fix legacy broken bcrypt seed so admin123 works."""
-    from app.models import User
     from app.security import hash_password
 
     db = SessionLocal()
     try:
-        user = db.query(User).filter(User.email == _DEFAULT_ADMIN_EMAIL).first()
-        if user is None:
-            db.add(
-                User(
-                    email=_DEFAULT_ADMIN_EMAIL,
-                    username="Admin User",
-                    password_hash=hash_password(_DEFAULT_ADMIN_PASSWORD),
-                    gender=None,
-                    security_q1=None,
-                    security_q2=None,
-                    is_admin=True,
-                )
+        # Use raw SQL to avoid model issues during migration
+        result = db.execute(text("SELECT id, password_hash, is_admin FROM users WHERE email = :email"), {"email": _DEFAULT_ADMIN_EMAIL})
+        user_row = result.first()
+        
+        if user_row is None:
+            # Create admin user with raw SQL
+            db.execute(
+                text(
+                    "INSERT INTO users (email, username, password_hash, gender, is_admin, is_email_verified) "
+                    "VALUES (:email, :username, :password_hash, :gender, :is_admin, :is_email_verified)"
+                ),
+                {
+                    "email": _DEFAULT_ADMIN_EMAIL,
+                    "username": "Admin User", 
+                    "password_hash": hash_password(_DEFAULT_ADMIN_PASSWORD),
+                    "gender": None,
+                    "is_admin": True,
+                    "is_email_verified": True,  # Admin should be verified
+                }
             )
             db.commit()
             return
-        if user.password_hash == _LEGACY_BAD_ADMIN_HASH:
-            user.password_hash = hash_password(_DEFAULT_ADMIN_PASSWORD)
-            db.add(user)
+            
+        user_id, password_hash, is_admin = user_row
+        
+        # Fix legacy password hash
+        if password_hash == _LEGACY_BAD_ADMIN_HASH:
+            db.execute(
+                text("UPDATE users SET password_hash = :password_hash WHERE id = :id"),
+                {"password_hash": hash_password(_DEFAULT_ADMIN_PASSWORD), "id": user_id}
+            )
             db.commit()
             return
-        if not user.is_admin:
-            user.is_admin = True
-            db.add(user)
+            
+        # Ensure admin flag is set
+        if not is_admin:
+            db.execute(
+                text("UPDATE users SET is_admin = :is_admin WHERE id = :id"),
+                {"is_admin": True, "id": user_id}
+            )
             db.commit()
     finally:
         db.close()

@@ -104,6 +104,7 @@ export default function SiteHomePage() {
   const router = useRouter();
   const pathname = usePathname();
   const [isAuthed, setIsAuthed] = useState(false);
+  const [currentSection, setCurrentSection] = useState("home");
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [tick, setTick] = useState(0);
   const [apptBusy, setApptBusy] = useState(false);
@@ -184,6 +185,25 @@ export default function SiteHomePage() {
   useEffect(() => {
     setIsAuthed(Boolean(getToken()));
   }, [pathname]);
+
+  const handleNavigation = useCallback((sectionId: string) => {
+    setCurrentSection(sectionId);
+    if (typeof window !== "undefined") {
+      window.location.hash = `#${sectionId}`;
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.slice(1) || "home";
+      setCurrentSection(hash);
+    };
+
+    window.addEventListener("hashchange", handleHashChange);
+    handleHashChange();
+
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
 
   const loadAppointments = useCallback(async () => {
     const token = getToken();
@@ -460,27 +480,63 @@ export default function SiteHomePage() {
       />
       <nav className="nav">
         <div className="nav-logo">
-          <a href="#home">PRIME .</a>
+          <a 
+            href="#home"
+            onClick={(e) => {
+              e.preventDefault();
+              handleNavigation("home");
+            }}
+          >
+            PRIME .
+          </a>
         </div>
         <div className="nav-menu" id="navMenu">
           <ul>
             <li>
-              <a href="#home" className="link">
+              <a 
+                href="#home" 
+                className={`link ${currentSection === "home" ? "active" : ""}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleNavigation("home");
+                }}
+              >
                 Home
               </a>
             </li>
             <li>
-              <a href="#services" className="link">
+              <a 
+                href="#services" 
+                className={`link ${currentSection === "services" ? "active" : ""}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleNavigation("services");
+                }}
+              >
                 Services
               </a>
             </li>
             <li>
-              <a href="#book" className="link">
+              <a 
+                href="#book" 
+                className={`link ${currentSection === "book" ? "active" : ""}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleNavigation("book");
+                }}
+              >
                 Book
               </a>
             </li>
             <li>
-              <a href="#contact" className="link">
+              <a 
+                href="#contact" 
+                className={`link ${currentSection === "contact" ? "active" : ""}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleNavigation("contact");
+                }}
+              >
                 Contact
               </a>
             </li>
@@ -508,7 +564,7 @@ export default function SiteHomePage() {
         </div>
       </nav>
 
-      <section id="home" className="home">
+      <section id="home" className={`home ${currentSection === "home" ? "active" : ""}`}>
         <div className="content">
           <h1>
             Welcome to <span>PRIME .</span>
@@ -519,10 +575,24 @@ export default function SiteHomePage() {
             your clearance - all in one place.
           </p>
           <div className="home-buttons">
-            <a href="#book" className="primary-btn">
+            <a 
+              href="#book" 
+              className="primary-btn"
+              onClick={(e) => {
+                e.preventDefault();
+                handleNavigation("book");
+              }}
+            >
               Book Now
             </a>
-            <a href="#services" className="secondary-btn">
+            <a 
+              href="#services" 
+              className="secondary-btn"
+              onClick={(e) => {
+                e.preventDefault();
+                handleNavigation("services");
+              }}
+            >
               Learn More
             </a>
           </div>
@@ -543,7 +613,7 @@ export default function SiteHomePage() {
         </div>
       </section>
 
-      <section id="services" className="services-section">
+      <section id="services" className={`services-section ${currentSection === "services" ? "active" : ""}`}>
         <div className="services-container">
           <h2 className="services-title">Our Services</h2>
           <div className="services-grid">
@@ -615,7 +685,7 @@ export default function SiteHomePage() {
         </div>
       </section>
 
-      <section id="book" className="book-section">
+      <section id="book" className={`book-section ${currentSection === "book" ? "active" : ""}`}>
         <div className="book-container">
           <div className="appointment-form">
             <form onSubmit={submitAppointment}>
@@ -999,7 +1069,7 @@ export default function SiteHomePage() {
         </div>
       </section>
 
-      <section id="contact" className="contact">
+      <section id="contact" className={`contact ${currentSection === "contact" ? "active" : ""}`}>
         <div className="contact-container">
           <div className="contact-wrapper">
             <div className="contact-info">

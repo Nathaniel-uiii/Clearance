@@ -1,5 +1,9 @@
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+import secrets
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,7 +19,7 @@ from app.db import (
     ensure_default_admin_user,
     run_startup_migrations,
 )
-from app.models import Appointment, ContactMessage, User
+from app.models import Appointment, ContactMessage, User, PasswordResetOTP, EmailVerificationOTP
 from app.schemas import (
     AppointmentCreateRequest,
     AppointmentResponse,
@@ -25,11 +29,15 @@ from app.schemas import (
     AdminStatsResponse,
     ContactMessageCreateRequest,
     ContactMessageResponse,
+    ForgotPasswordRequest,
     LoginRequest,
     MeResponse,
+    OTPResponse,
     RegisterRequest,
+    ResetPasswordRequest,
     TokenResponse,
     UserResponse,
+    VerifyEmailRequest,
 )
 from app.security import (
     create_access_token,
@@ -113,27 +121,231 @@ def health():
 
 @app.post("/auth/register", status_code=201)
 def register(payload: RegisterRequest, db: Session = Depends(get_db)):
-    if db.query(User).filter(User.email == payload.email).first():
+    user = db.query(User).filter(User.email == payload.email).first()
+    if user is not None and user.is_email_verified:
         raise HTTPException(status_code=409, detail="Email already registered")
-    user = User(
+
+    if user is None:
+        user = User(
+            email=payload.email,
+            username=payload.username,
+            password_hash=hash_password(payload.password),
+            gender=payload.gender,
+            is_email_verified=False,
+        )
+        db.add(user)
+        db.commit()
+    else:
+        user.username = payload.username
+        user.password_hash = hash_password(payload.password)
+        user.gender = payload.gender
+        db.commit()
+
+    existing_token = db.query(EmailVerificationOTP).filter(EmailVerificationOTP.email == payload.email).first()
+    if existing_token:
+        db.delete(existing_token)
+        db.commit()
+
+    token = generate_token()
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+    token_record = EmailVerificationOTP(
         email=payload.email,
-        username=payload.username,
-        password_hash=hash_password(payload.password),
-        gender=payload.gender,
-        security_q1=payload.security_q1,
-        security_q2=payload.security_q2,
+        token=token,
+        expires_at=expires_at,
     )
-    db.add(user)
+    db.add(token_record)
     db.commit()
-    db.refresh(user)
-    return {"id": user.id, "email": user.email}
+
+    verification_link = f"{settings.FRONTEND_URL.rstrip('/')}/verify-email?token={token}"
+    if not send_verification_email(payload.email, verification_link):
+        raise HTTPException(
+            status_code=500,
+            detail="Verification email could not be sent. Check SMTP configuration.",
+        )
+
+    return {"message": "Verification email sent. Please click the link in your inbox to verify your account."}
 
 
 @app.post("/auth/login", response_model=TokenResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email).first()
-    if user is None or not verify_password(payload.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Incorrect email or password")
+    if user is None:
+        raise HTTPException(status_code=401, detail="This email is not registered")
+    if not verify_password(payload.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Wrong password")
+    if not user.is_email_verified and not check_is_admin(user):
+        raise HTTPException(status_code=403, detail="Please verify your email before logging in")
+    token = create_access_token(user.id)
+    return TokenResponse(access_token=token)
+
+
+def generate_token() -> str:
+    """Generate a secure token for email verification and password reset."""
+    return secrets.token_urlsafe(32)
+
+
+def send_email(
+    email: str,
+    subject: str,
+    text_body: str,
+    html_body: str,
+) -> bool:
+    """Send an email using SMTP settings from configuration."""
+    if not settings.SMTP_SERVER or not settings.SMTP_USER or not settings.SMTP_PASSWORD:
+        print(
+            "SMTP settings are missing. Set SMTP_SERVER, SMTP_USER, and SMTP_PASSWORD in .env."
+        )
+        return False
+
+    sender_email = settings.SMTP_FROM_EMAIL or settings.SMTP_USER
+    sender_name = settings.SMTP_FROM_NAME or "PRIME"
+    message = MIMEMultipart("alternative")
+    message["Subject"] = subject
+    message["From"] = f"{sender_name} <{sender_email}>"
+    message["To"] = email
+
+    part1 = MIMEText(text_body, "plain")
+    part2 = MIMEText(html_body, "html")
+    message.attach(part1)
+    message.attach(part2)
+
+    try:
+        if settings.SMTP_PORT == 465:
+            server = smtplib.SMTP_SSL(settings.SMTP_SERVER, settings.SMTP_PORT, timeout=10)
+        else:
+            server = smtplib.SMTP(settings.SMTP_SERVER, settings.SMTP_PORT, timeout=10)
+            if settings.SMTP_USE_TLS:
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
+
+        server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+        server.sendmail(sender_email, [email], message.as_string())
+        server.quit()
+        return True
+    except Exception as e:
+        print(f"Failed to send email to {email}: {e}")
+        return False
+
+
+def send_verification_email(email: str, verification_link: str) -> bool:
+    subject = "Verify Your PRIME Account Email"
+    text = (
+        f"Click the link below to verify your PRIME account:\n\n{verification_link}\n\n"
+        "This link expires in 10 minutes."
+    )
+    html = (
+        f"<html><body><p>Click the link below to verify your PRIME account:</p>"
+        f"<p><a href=\"{verification_link}\">Verify Email</a></p>"
+        f"<p>This link expires in 10 minutes.</p></body></html>"
+    )
+    return send_email(email, subject, text, html)
+
+
+def send_reset_email(email: str, reset_link: str) -> bool:
+    subject = "Reset Your PRIME Account Password"
+    text = (
+        f"Click the link below to reset your PRIME password:\n\n{reset_link}\n\n"
+        "This link expires in 10 minutes."
+    )
+    html = (
+        f"<html><body><p>Click the link below to reset your PRIME password:</p>"
+        f"<p><a href=\"{reset_link}\">Reset Password</a></p>"
+        f"<p>This link expires in 10 minutes.</p></body></html>"
+    )
+    return send_email(email, subject, text, html)
+
+
+@app.post("/auth/forgot-password", response_model=OTPResponse)
+def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """Request password reset via email link."""
+    user = db.query(User).filter(User.email == payload.email).first()
+    if not user:
+        # Don't reveal if email exists or not (security best practice)
+        return OTPResponse(message="If email exists, a password reset link has been sent.")
+
+    token = generate_token()
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+
+    db.query(PasswordResetOTP).filter(PasswordResetOTP.email == payload.email).delete()
+    token_record = PasswordResetOTP(
+        email=payload.email,
+        token=token,
+        expires_at=expires_at,
+    )
+    db.add(token_record)
+    db.commit()
+
+    reset_link = f"{settings.FRONTEND_URL.rstrip('/')}/forgot-password?token={token}"
+    if not send_reset_email(payload.email, reset_link):
+        raise HTTPException(
+            status_code=500,
+            detail="Password reset email could not be sent. Check SMTP configuration.",
+        )
+
+    return OTPResponse(message="If email exists, a password reset link has been sent.")
+
+
+@app.post("/auth/reset-password", response_model=OTPResponse)
+def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """Reset password using a secure reset token."""
+    token_record = db.query(PasswordResetOTP).filter(
+        PasswordResetOTP.token == payload.token,
+    ).first()
+
+    if not token_record:
+        raise HTTPException(status_code=401, detail="Invalid password reset token")
+
+    if token_record.expires_at.replace(tzinfo=None) < datetime.now(timezone.utc).replace(tzinfo=None):
+        db.delete(token_record)
+        db.commit()
+        raise HTTPException(status_code=401, detail="Password reset token has expired")
+
+    user = db.query(User).filter(User.email == token_record.email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.password_hash = hash_password(payload.new_password)
+    db.delete(token_record)
+    db.commit()
+
+    return OTPResponse(message="Password has been reset successfully")
+
+
+@app.post("/auth/verify-email", response_model=TokenResponse)
+def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)):
+    """Verify email using a secure registration token."""
+    token_record = db.query(EmailVerificationOTP).filter(
+        EmailVerificationOTP.token == payload.token,
+    ).first()
+
+    if not token_record:
+        raise HTTPException(status_code=401, detail="Invalid verification token")
+
+    expires_at = token_record.expires_at
+    if hasattr(expires_at, 'tzinfo') and expires_at.tzinfo is not None:
+        expires_at = expires_at.replace(tzinfo=None)
+
+    if expires_at < datetime.now(timezone.utc).replace(tzinfo=None):
+        db.delete(token_record)
+        db.commit()
+        raise HTTPException(status_code=401, detail="Verification token has expired")
+
+    user = db.query(User).filter(User.email == token_record.email).first()
+    if not user:
+        db.delete(token_record)
+        db.commit()
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.is_email_verified:
+        db.delete(token_record)
+        db.commit()
+        raise HTTPException(status_code=409, detail="Email already verified")
+
+    user.is_email_verified = True
+    db.delete(token_record)
+    db.commit()
+
     token = create_access_token(user.id)
     return TokenResponse(access_token=token)
 
@@ -149,6 +361,7 @@ def me(
         email=user.email,
         username=user.username,
         is_admin=user.is_admin,
+        is_email_verified=user.is_email_verified,
     )
 
 

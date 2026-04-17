@@ -9,10 +9,13 @@
 }
 html{
     scroll-behavior: smooth;
+    overflow: hidden;
 }
 body{
     background: #ffffff;
     color: #111827;
+    overflow: hidden;
+    height: 100vh;
 }
 .wrapper{
     display: flex;
@@ -20,6 +23,13 @@ body{
     align-items: center;
     min-height: 110vh;
     background: rgba(39, 39, 39, 0.4);
+}
+
+/* Main container for all sections */
+main, > div {
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
 }
 .nav{
     position: fixed;
@@ -223,13 +233,36 @@ header{
 }
 
 section{
-    display: flex;
+    display: none;
     justify-content: center;
     align-items: center;
     height: 100vh;
     width: 100%;
     background: rgba(39, 39, 39, 0.4);
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-top: 70px;
+}
 
+section.active {
+    display: flex;
+}
+
+#home {
+    padding-top: 0;
+}
+
+#services {
+    padding-top: 0;
+}
+
+#book {
+    padding-top: 70px;
+}
+
+#contact {
+    padding-top: 70px;
 }
 
 
@@ -353,11 +386,11 @@ form {
 
 #book {
     min-height: 100vh;
-    display: flex;
+    display: flex !important;
     flex-direction: column;
     align-items: stretch;
     justify-content: flex-start;
-    padding-top: 88px;
+    padding-top: 70px;
     padding-bottom: 32px;
     box-sizing: border-box;
 }

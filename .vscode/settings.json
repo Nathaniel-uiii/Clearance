@@ -1,0 +1,19 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "Set-ExecutionPolicy": true,
+        "npm install": true,
+        "/^cd c:\\\\Users\\\\Ken\\\\Clearance\\\\prime-api ; python -m uvicorn app\\.main:app --reload --host 0\\.0\\.0\\.0 --port 8000$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^powershell -ExecutionPolicy Bypass -Command \"cd c:\\\\Users\\\\Ken\\\\Clearance\\\\prime-next; npm run dev\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^cd c:/Users/Ken/Clearance/prime-api ; python -m py_compile app/main\\.py$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    },
+    "python-envs.defaultEnvManager": "ms-python.python:system"
+}

@@ -11,6 +11,8 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loginEmailError, setLoginEmailError] = useState(false);
+  const [loginPasswordError, setLoginPasswordError] = useState(false);
   const router = useRouter();
 
   const [loginEmail, setLoginEmail] = useState("");
@@ -20,8 +22,6 @@ export default function LoginPage() {
   const [regGender, setRegGender] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
-  const [regQ1, setRegQ1] = useState("");
-  const [regQ2, setRegQ2] = useState("");
 
   const styles = useMemo(() => {
     const isLogin = mode === "login";
@@ -43,6 +43,8 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+    setLoginEmailError(false);
+    setLoginPasswordError(false);
     setBusy(true);
     try {
       const data = await apiJson<{ access_token: string; token_type: string }>(
@@ -55,7 +57,17 @@ export default function LoginPage() {
       setToken(data.access_token);
       router.push("/");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      const errorMsg = err instanceof Error ? err.message : "Login failed";
+      setError(errorMsg);
+      
+      // Determine which field has the error based on error message
+      if (errorMsg.includes("not registered")) {
+        setLoginEmailError(true);
+      } else if (errorMsg.includes("Wrong password")) {
+        setLoginPasswordError(true);
+      } else if (errorMsg.includes("verify your email")) {
+        setLoginEmailError(true);
+      }
     } finally {
       setBusy(false);
     }
@@ -70,8 +82,6 @@ export default function LoginPage() {
       email: regEmail,
       password: regPassword,
       gender: regGender,
-      securityQ1: regQ1,
-      securityQ2: regQ2,
     });
     if (regErr) {
       setError(regErr);
@@ -86,15 +96,12 @@ export default function LoginPage() {
           gender: regGender || null,
           email: regEmail,
           password: regPassword,
-          security_q1: regQ1 || null,
-          security_q2: regQ2 || null,
         }),
       });
-      setSuccess("Registered successfully. Please log in.");
+      setSuccess(
+        "Registration successful. Check your email for a verification link to complete signup."
+      );
       setMode("login");
-      setLoginEmail(regEmail);
-      setLoginPassword("");
-      setRegPassword("");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Register failed");
     } finally {
@@ -159,13 +166,22 @@ export default function LoginPage() {
                   id="login-email"
                   type="email"
                   name="email"
-                  className="input-field"
+                  className={`input-field ${loginEmailError ? "input-field--error" : ""}`}
                   autoComplete="email"
                   required
                   value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
+                  onChange={(e) => {
+                    setLoginEmail(e.target.value);
+                    if (loginEmailError) {
+                      setLoginEmailError(false);
+                      setError(null);
+                    }
+                  }}
                 />
               </div>
+              {loginEmailError && error && (
+                <div className="field-error">{error}</div>
+              )}
             </div>
             <div className="input-box input-box--stacked">
               <label className="field-label field-label--above" htmlFor="login-password">
@@ -177,13 +193,22 @@ export default function LoginPage() {
                   id="login-password"
                   type="password"
                   name="password"
-                  className="input-field"
+                  className={`input-field ${loginPasswordError ? "input-field--error" : ""}`}
                   autoComplete="current-password"
                   required
                   value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
+                  onChange={(e) => {
+                    setLoginPassword(e.target.value);
+                    if (loginPasswordError) {
+                      setLoginPasswordError(false);
+                      setError(null);
+                    }
+                  }}
                 />
               </div>
+              {loginPasswordError && error && (
+                <div className="field-error">{error}</div>
+              )}
             </div>
             <div className="input-box">
               <button type="submit" className="submit" disabled={busy}>
@@ -197,7 +222,7 @@ export default function LoginPage() {
               </div>
               <div className="two">
                 <label>
-                  <a href="#">Forgot password?</a>
+                  <a href="/forgot-password">Forgot password?</a>
                 </label>
               </div>
             </div>
@@ -315,42 +340,6 @@ export default function LoginPage() {
                 At least 8 characters, max 72 bytes. Include at least one number and one special
                 character (!@#$%^&amp;* etc.).
               </p>
-            </div>
-            <div className="input-box input-box--stacked">
-              <label className="field-label field-label--above" htmlFor="reg-q1">
-                What was your first pet&apos;s name?
-              </label>
-              <div className="input-box__control">
-                <i className="bx bx-question-mark" aria-hidden={true} />
-                <input
-                  id="reg-q1"
-                  type="text"
-                  name="security_q1"
-                  className="input-field"
-                  autoComplete="off"
-                  required
-                  value={regQ1}
-                  onChange={(e) => setRegQ1(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="input-box input-box--stacked">
-              <label className="field-label field-label--above" htmlFor="reg-q2">
-                In which city were you born?
-              </label>
-              <div className="input-box__control">
-                <i className="bx bx-question-mark" aria-hidden={true} />
-                <input
-                  id="reg-q2"
-                  type="text"
-                  name="security_q2"
-                  className="input-field"
-                  autoComplete="off"
-                  required
-                  value={regQ2}
-                  onChange={(e) => setRegQ2(e.target.value)}
-                />
-              </div>
             </div>
             <div className="input-box">
               <input

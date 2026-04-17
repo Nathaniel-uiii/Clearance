@@ -12,9 +12,31 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(255))
     password_hash: Mapped[str] = mapped_column(String(255))
     gender: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    security_q1: Mapped[str | None] = mapped_column(Text, nullable=True)
-    security_q2: Mapped[str | None] = mapped_column(Text, nullable=True)
-    is_admin: Mapped[bool] = mapped_column(default=False, server_default="0")
+    is_email_verified: Mapped[bool] = mapped_column(default=False, server_default="0")
+    created_at: Mapped[object] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class PasswordResetOTP(Base):
+    __tablename__ = "password_reset_otps"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String(255), index=True)
+    token: Mapped[str] = mapped_column("otp_code", String(64))
+    expires_at: Mapped[object] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[object] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class EmailVerificationOTP(Base):
+    __tablename__ = "email_verification_otps"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String(255), index=True)
+    token: Mapped[str] = mapped_column("otp_code", String(64))
+    expires_at: Mapped[object] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[object] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

@@ -89,8 +89,6 @@ export function validateRegisterForm(input: {
   email: string;
   password: string;
   gender: string;
-  securityQ1: string;
-  securityQ2: string;
 }): string | null {
   const nameErr = validatePersonName(input.fullName, "Full name");
   if (nameErr) return nameErr;
@@ -102,12 +100,6 @@ export function validateRegisterForm(input: {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) {
     return "Please enter a valid email address.";
   }
-  if (!input.securityQ1?.trim()) return "Security answer 1 is required.";
-  if (!input.securityQ2?.trim()) return "Security answer 2 is required.";
-  const s1 = validateOptionalSecurityAnswer(input.securityQ1, "Security answer 1");
-  if (s1) return s1;
-  const s2 = validateOptionalSecurityAnswer(input.securityQ2, "Security answer 2");
-  if (s2) return s2;
   return null;
 }
 

@@ -29,8 +29,6 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     gender: Optional[str] = None
-    security_q1: Optional[str] = None
-    security_q2: Optional[str] = None
 
     @field_validator("username")
     @classmethod
@@ -40,57 +38,9 @@ class RegisterRequest(BaseModel):
             raise ValueError(err)
         return v.strip()
 
-    @field_validator("password")
-    @classmethod
-    def password_baldomar(cls, v: str) -> str:
-        err = validate_password_baldomar(v)
-        if err:
-            raise ValueError(err)
-        return v
 
-    @field_validator("gender", mode="before")
-    @classmethod
-    def gender_empty_to_none(cls, v: object) -> object:
-        if v == "":
-            return None
-        return v
-
-    @field_validator("gender")
-    @classmethod
-    def gender_allowed(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
-            return None
-        err = validate_gender_optional(v)
-        if err:
-            raise ValueError(err)
-        return v
-
-    @field_validator("security_q1", "security_q2", mode="before")
-    @classmethod
-    def security_empty_to_none(cls, v: object) -> object:
-        if v == "":
-            return None
-        return v
-
-    @field_validator("security_q1")
-    @classmethod
-    def security_q1_ok(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
-            return None
-        err = validate_optional_security_answer(v, "Security answer 1")
-        if err:
-            raise ValueError(err)
-        return v.strip()
-
-    @field_validator("security_q2")
-    @classmethod
-    def security_q2_ok(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
-            return None
-        err = validate_optional_security_answer(v, "Security answer 2")
-        if err:
-            raise ValueError(err)
-        return v.strip()
+class VerifyEmailRequest(BaseModel):
+    token: str = Field(..., min_length=16)
 
 
 class LoginRequest(BaseModel):
@@ -105,9 +55,30 @@ class LoginRequest(BaseModel):
         return v
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(..., min_length=16)
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def new_password_baldomar(cls, v: str) -> str:
+        err = validate_password_baldomar(v)
+        if err:
+            raise ValueError(err)
+        return v
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+class OTPResponse(BaseModel):
+    message: str
 
 
 class MeResponse(BaseModel):
@@ -115,6 +86,7 @@ class MeResponse(BaseModel):
     email: str
     username: str
     is_admin: bool
+    is_email_verified: bool
 
     model_config = {"from_attributes": True}
 
