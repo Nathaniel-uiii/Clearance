@@ -6,9 +6,9 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const pathSegments = params.path || [];
+  const { path: pathSegments = [] } = await params;
   const path = "/" + pathSegments.join("/");
   const url = new URL(`${API_BASE}${path}${request.nextUrl.search}`);
 
@@ -36,9 +36,9 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const pathSegments = params.path || [];
+  const { path: pathSegments = [] } = await params;
   const path = "/" + pathSegments.join("/");
   const url = new URL(`${API_BASE}${path}${request.nextUrl.search}`);
 
@@ -73,9 +73,9 @@ export async function POST(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const pathSegments = params.path || [];
+  const { path: pathSegments = [] } = await params;
   const path = "/" + pathSegments.join("/");
   const url = new URL(`${API_BASE}${path}${request.nextUrl.search}`);
 
@@ -110,9 +110,9 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const pathSegments = params.path || [];
+  const { path: pathSegments = [] } = await params;
   const path = "/" + pathSegments.join("/");
   const url = new URL(`${API_BASE}${path}${request.nextUrl.search}`);
 

@@ -27,11 +27,10 @@ export default function AdminLoginPage() {
       const token = data.access_token;
       setAdminToken(token);
 
-      const res = await fetch(getApiUrl("/me"), {
+      const me = await apiJson<{ is_admin: boolean }>("/me", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const me = await res.json();
-      if (!res.ok || !me.is_admin) {
+      if (!me.is_admin) {
         clearAdminToken();
         setMessage("Admin access required");
         return;

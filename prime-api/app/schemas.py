@@ -87,8 +87,13 @@ class MeResponse(BaseModel):
     username: str
     is_admin: bool
     is_email_verified: bool
+    profile_picture: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+
+class UpdateProfileRequest(BaseModel):
+    profile_picture: Optional[str] = None
 
 
 class AppointmentCreateRequest(BaseModel):
@@ -180,6 +185,7 @@ class UserResponse(BaseModel):
     username: str
     gender: Optional[str] = None
     is_admin: bool
+    profile_picture: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -208,6 +214,7 @@ class AppointmentStatusUpdateRequest(BaseModel):
 class AdminStatsResponse(BaseModel):
     total_users: int
     total_appointments: int
+    total_messages: int
     pending_appointments: int
     confirmed_appointments: int
     completed_appointments: int

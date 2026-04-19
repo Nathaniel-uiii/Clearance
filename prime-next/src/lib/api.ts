@@ -11,7 +11,11 @@ export function getApiBaseUrl(): string {
 }
 
 export function getApiUrl(path: string): string {
-  return path.startsWith("http") ? path : `${API_BASE}${path}`;
+  if (path.startsWith("http")) return path;
+  if (typeof window !== "undefined") {
+    return `/api${path}`;
+  }
+  return `${API_BASE}${path}`;
 }
 
 if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
@@ -38,7 +42,7 @@ export async function apiJson<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
-  const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
+  const url = getApiUrl(path);
   const headers = buildFetchHeaders(init);
 
   const controller = new AbortController();
@@ -69,6 +73,24 @@ export async function apiJson<T>(
   }
 
   if (!res.ok) {
+    if (url.startsWith("/api") && res.status === 404) {
+      const fallbackUrl = `${API_BASE}${path}`;
+      try {
+        const fallbackRes = await fetch(fallbackUrl, {
+          ...init,
+          headers,
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (fallbackRes.ok) {
+          if (fallbackRes.status === 204) return {} as T;
+          return fallbackRes.json() as Promise<T>;
+        }
+      } catch {
+        // ignore fallback failure, use original error below
+      }
+    }
+
     let message = `${res.status} ${res.statusText}`;
     try {
       const body = (await res.json()) as {

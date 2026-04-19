@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getAdminToken, clearAdminToken } from "@/lib/auth";
-import { getApiUrl } from "@/lib/api";
+import { getApiUrl, apiJson, authHeaders } from "@/lib/api";
 import "@/app/(auth)/auth.css";
 import "./admin.css";
 
@@ -14,8 +14,10 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const [user, setUser] = useState<{ id: number; email: string; is_admin: boolean } | null>(null);
+  const [user, setUser] = useState<{ id: number; email: string; is_admin: boolean; profile_picture?: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showPictureInput, setShowPictureInput] = useState(false);
+  const [tempPictureUrl, setTempPictureUrl] = useState("");
 
   useEffect(() => {
     const token = getAdminToken();
@@ -58,9 +60,66 @@ export default function AdminLayout({
   return (
     <div className="admin-layout">
       <nav className="admin-navbar">
-        <div className="admin-nav-brand">
-          <Link href="/admin">Admin Panel</Link>
+        <div className="admin-profile">
+          <div className="admin-avatar-container">
+            <img 
+              src={user.profile_picture || "/images/ken.jpg"} 
+              alt="Admin profile" 
+              className="admin-avatar" 
+              onClick={() => {
+                setShowPictureInput(!showPictureInput);
+                setTempPictureUrl(user.profile_picture || "");
+              }}
+              style={{ cursor: 'pointer' }}
+            />
+            {showPictureInput && (
+              <div 
+                className="picture-input-overlay"
+                onClick={() => setShowPictureInput(false)}
+              >
+                <input
+                  type="text"
+                  placeholder="Enter picture URL"
+                  value={tempPictureUrl}
+                  onChange={(e) => setTempPictureUrl(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  autoFocus
+                />
+                <div className="picture-input-buttons" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={async () => {
+                      const token = getAdminToken();
+                      if (!token) return;
+                      try {
+                        await apiJson("/me", {
+                          method: "PATCH",
+                          headers: authHeaders(token),
+                          body: JSON.stringify({ profile_picture: tempPictureUrl }),
+                        });
+                        setUser({ ...user, profile_picture: tempPictureUrl });
+                        setShowPictureInput(false);
+                      } catch (err) {
+                        console.error(err);
+                      }
+                    }}
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => setShowPictureInput(false)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="admin-profile-info">
+            <span className="admin-profile-name">Admin</span>
+            <span className="admin-profile-email">{user.email}</span>
+          </div>
         </div>
+
         <ul className="admin-nav-links">
           <li>
             <Link href="/admin">Dashboard</Link>
@@ -74,8 +133,7 @@ export default function AdminLayout({
           <li>
             <Link href="/admin/messages">Messages</Link>
           </li>
-          <li className="admin-nav-user">
-            <span>{user.email}</span>
+          <li className="admin-nav-logout">
             <button
               onClick={() => {
                 clearAdminToken();

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getAdminToken } from "@/lib/auth";
-import { getApiUrl } from "@/lib/api";
+import { apiJson, authHeaders } from "@/lib/api";
 
 interface User {
   id: number;
@@ -27,50 +27,44 @@ export default function AdminUsersPage() {
     loadUsers();
   }, []);
 
-  function loadUsers() {
+  async function loadUsers() {
     const token = getAdminToken();
     if (!token) {
       router.push("/admin/login");
       return;
     }
 
-    fetch(getApiUrl("/admin/users"), {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch users");
-        return res.json();
-      })
-      .then((data) => {
-        setUsers(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
+    try {
+      const data = await apiJson<User[]>("/admin/users", {
+        headers: authHeaders(token),
       });
+      setUsers(data);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to fetch users");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function toggleAdminStatus(userId: number, isAdmin: boolean) {
-    const token = getToken();
-    if (!token) return;
+    const token = getAdminToken();
+    if (!token) {
+      setMessage({ type: "error", text: "Admin session expired. Please log in again." });
+      router.push("/admin/login");
+      return;
+    }
 
-    const endpoint = isAdmin ? getApiUrl(`/admin/users/${userId}/remove-admin`) : getApiUrl(`/admin/users/${userId}/make-admin`);
+    const endpoint = isAdmin ? `/admin/users/${userId}/remove-admin` : `/admin/users/${userId}/make-admin`;
 
     try {
-      const res = await fetch(endpoint, {
+      await apiJson<{ message: string; user: User }>(endpoint, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: authHeaders(token),
       });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "Failed to update user");
-      }
 
       setMessage({ type: "success", text: "User privileges updated" });
       loadUsers();
-    } catch (err) {
+    } catch (err: unknown) {
       setMessage({ type: "error", text: err instanceof Error ? err.message : "Error" });
     }
   }

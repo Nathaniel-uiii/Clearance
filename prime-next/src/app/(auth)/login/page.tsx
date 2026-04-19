@@ -59,14 +59,17 @@ export default function LoginPage() {
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : "Login failed";
       setError(errorMsg);
-      
-      // Determine which field has the error based on error message
-      if (errorMsg.includes("not registered")) {
+
+      const normalizedErrorMsg = errorMsg.toLowerCase();
+      if (normalizedErrorMsg.includes("not registered")) {
         setLoginEmailError(true);
-      } else if (errorMsg.includes("Wrong password")) {
+        setLoginPasswordError(false);
+      } else if (normalizedErrorMsg.includes("wrong password")) {
         setLoginPasswordError(true);
-      } else if (errorMsg.includes("verify your email")) {
+        setLoginEmailError(false);
+      } else if (normalizedErrorMsg.includes("verify your email")) {
         setLoginEmailError(true);
+        setLoginPasswordError(false);
       }
     } finally {
       setBusy(false);

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { getAdminToken } from "@/lib/auth";
-import { getApiUrl } from "@/lib/api";
+import { apiJson, authHeaders, getApiUrl } from "@/lib/api";
 
 interface Appointment {
   id: number;
@@ -45,26 +45,21 @@ export default function AppointmentDetailPage() {
       return;
     }
 
-    fetch(getApiUrl(`/admin/appointments/${appointmentId}`), {
-      headers: { Authorization: `Bearer ${token}` },
+    apiJson<Appointment>(`/admin/appointments/${appointmentId}`, {
+      headers: authHeaders(token),
     })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch appointment");
-        return res.json();
-      })
       .then((data) => {
         setAppointment(data);
-        // Fetch user info
-        return fetch(getApiUrl(`/admin/users/${data.user_id}`), {
-          headers: { Authorization: `Bearer ${token}` },
-        }).then((res) => res.json());
+        return apiJson<User>(`/admin/users/${data.user_id}`, {
+          headers: authHeaders(token),
+        });
       })
       .then((userData) => {
         setUser(userData);
         setLoading(false);
       })
       .catch((err) => {
-        setError(err.message);
+        setError(err instanceof Error ? err.message : "Failed to fetch appointment");
         setLoading(false);
       });
   }, [appointmentId, router]);
@@ -74,21 +69,12 @@ export default function AppointmentDetailPage() {
     if (!token) return;
 
     try {
-      const res = await fetch(getApiUrl(`/admin/appointments/${appointmentId}`), {
+      const updated = await apiJson<Appointment>(`/admin/appointments/${appointmentId}`, {
         method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: authHeaders(token),
         body: JSON.stringify({ status: newStatus }),
       });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "Failed to update appointment");
-      }
-
-      const updated = await res.json();
       setAppointment(updated);
       setMessage({ type: "success", text: "Appointment updated successfully" });
     } catch (err) {

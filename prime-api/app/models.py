@@ -14,6 +14,7 @@ class User(Base):
     gender: Mapped[str | None] = mapped_column(String(50), nullable=True)
     is_admin: Mapped[bool] = mapped_column(default=False, server_default="0")
     is_email_verified: Mapped[bool] = mapped_column(default=False, server_default="0")
+    profile_picture: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[object] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

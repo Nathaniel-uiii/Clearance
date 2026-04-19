@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getAdminToken } from "@/lib/auth";
-import { getApiUrl } from "@/lib/api";
+import { apiJson, authHeaders, getApiUrl } from "@/lib/api";
 
 interface Appointment {
   id: number;
@@ -33,52 +33,43 @@ export default function AdminAppointmentsPage() {
     loadAppointments();
   }, []);
 
-  function loadAppointments() {
+  async function loadAppointments() {
     const token = getAdminToken();
     if (!token) {
       router.push("/admin/login");
       return;
     }
 
-    fetch(getApiUrl("/admin/appointments"), {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch appointments");
-        return res.json();
-      })
-      .then((data) => {
-        setAppointments(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
+    try {
+      const data = await apiJson<Appointment[]>("/admin/appointments", {
+        headers: authHeaders(token),
       });
+      setAppointments(data);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to fetch appointments");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function updateStatus(appointmentId: number, newStatus: string) {
-    const token = getToken();
-    if (!token) return;
+    const token = getAdminToken();
+    if (!token) {
+      setMessage({ type: "error", text: "Admin session expired. Please log in again." });
+      router.push("/admin/login");
+      return;
+    }
 
     try {
-      const res = await fetch(getApiUrl(`/admin/appointments/${appointmentId}`), {
+      await apiJson(`/admin/appointments/${appointmentId}`, {
         method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: authHeaders(token),
         body: JSON.stringify({ status: newStatus }),
       });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "Failed to update appointment");
-      }
-
       setMessage({ type: "success", text: "Appointment updated" });
       loadAppointments();
-    } catch (err) {
+    } catch (err: unknown) {
       setMessage({ type: "error", text: err instanceof Error ? err.message : "Error" });
     }
   }

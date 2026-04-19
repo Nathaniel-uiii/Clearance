@@ -108,7 +108,7 @@ def get_current_admin(
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise HTTPException(status_code=401, detail="User not found")
-    if user.email != "admin@admin.com":
+    if not user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
     return user
 
@@ -363,6 +363,31 @@ def me(
         username=user.username,
         is_admin=user.is_admin,
         is_email_verified=user.is_email_verified,
+        profile_picture=user.profile_picture,
+    )
+
+
+@app.patch("/me", response_model=MeResponse)
+def update_me(
+    payload: UpdateProfileRequest,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id == user_id).one_or_none()
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+    if payload.profile_picture is not None:
+        user.profile_picture = payload.profile_picture
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return MeResponse(
+        id=user.id,
+        email=user.email,
+        username=user.username,
+        is_admin=user.is_admin,
+        is_email_verified=user.is_email_verified,
+        profile_picture=user.profile_picture,
     )
 
 
@@ -460,6 +485,7 @@ def admin_stats(
     """Get admin dashboard statistics."""
     total_users = db.query(func.count(User.id)).scalar() or 0
     total_appointments = db.query(func.count(Appointment.id)).scalar() or 0
+    total_messages = db.query(func.count(ContactMessage.id)).scalar() or 0
     pending = (
         db.query(func.count(Appointment.id))
         .filter(Appointment.status == "pending")
@@ -518,6 +544,7 @@ def admin_stats(
     return AdminStatsResponse(
         total_users=total_users,
         total_appointments=total_appointments,
+        total_messages=total_messages,
         pending_appointments=pending,
         confirmed_appointments=confirmed,
         completed_appointments=completed,
