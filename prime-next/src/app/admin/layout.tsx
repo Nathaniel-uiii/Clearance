@@ -133,6 +133,9 @@ export default function AdminLayout({
           <li>
             <Link href="/admin/messages">Messages</Link>
           </li>
+          <li>
+            <Link href="/admin/archive">Archive</Link>
+          </li>
           <li className="admin-nav-logout">
             <button
               onClick={() => {

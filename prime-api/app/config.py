@@ -28,13 +28,13 @@ class Settings(BaseSettings):
     # Gmail SMTP
     SMTP_SERVER: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
-    SMTP_USER: str
-    SMTP_PASSWORD: str
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
     SMTP_USE_TLS: bool = True
-    SMTP_FROM_EMAIL: str
+    SMTP_FROM_EMAIL: str = ""
     SMTP_FROM_NAME: str = "PRIME"
 
-    FRONTEND_URL: str = "http://localhost:3001"
+    FRONTEND_URL: str = "http://localhost:3000"
 
 
 settings = Settings()

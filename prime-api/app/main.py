@@ -19,7 +19,7 @@ from app.db import (
     ensure_default_admin_user,
     run_startup_migrations,
 )
-from app.models import Appointment, ContactMessage, User, PasswordResetOTP, EmailVerificationOTP
+from app.models import Appointment, ArchivedMessage, ContactMessage, User, PasswordResetOTP, EmailVerificationOTP
 from app.schemas import (
     AppointmentCreateRequest,
     AppointmentResponse,
@@ -27,6 +27,7 @@ from app.schemas import (
     AdminAppointmentResponse,
     AdminMessageStatusUpdateRequest,
     AdminStatsResponse,
+    ArchivedMessageResponse,
     ContactMessageCreateRequest,
     ContactMessageResponse,
     ForgotPasswordRequest,
@@ -36,6 +37,7 @@ from app.schemas import (
     RegisterRequest,
     ResetPasswordRequest,
     TokenResponse,
+    UpdateProfileRequest,
     UserResponse,
     VerifyEmailRequest,
 )
@@ -61,6 +63,36 @@ async def lifespan(_: FastAPI):
     Base.metadata.create_all(bind=engine)
     run_startup_migrations()
     ensure_default_admin_user()
+    
+    # Run cleanup of old archived messages on startup
+    def cleanup_old_archived_messages():
+        from datetime import datetime, timedelta, timezone
+        from app.db import SessionLocal
+        
+        db = SessionLocal()
+        try:
+            thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+            old_messages = (
+                db.query(ArchivedMessage)
+                .filter(ArchivedMessage.archived_at < thirty_days_ago)
+                .all()
+            )
+            deleted_count = len(old_messages)
+            for msg in old_messages:
+                db.delete(msg)
+            db.commit()
+            if deleted_count > 0:
+                print(f"Cleaned up {deleted_count} archived messages older than 30 days")
+        except Exception as e:
+            print(f"Error cleaning up archived messages: {e}")
+        finally:
+            db.close()
+    
+    # Run cleanup in background
+    import threading
+    cleanup_thread = threading.Thread(target=cleanup_old_archived_messages)
+    cleanup_thread.start()
+    
     yield
 
 
@@ -144,6 +176,12 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     if existing_token:
         db.delete(existing_token)
         db.commit()
+
+    # Auto-verify user if SMTP is not configured (local development)
+    if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
+        user.is_email_verified = True
+        db.commit()
+        return {"message": "Account created and auto-verified (SMTP not configured)."}
 
     token = generate_token()
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
@@ -638,9 +676,77 @@ def admin_delete_message(
     )
     if message is None:
         raise HTTPException(status_code=404, detail="Message not found")
+    
+    # Archive the message instead of deleting it
+    archived_message = ArchivedMessage(
+        original_message_id=message.id,
+        fullname=message.fullname,
+        email=message.email,
+        phone=message.phone,
+        subject=message.subject,
+        message=message.message,
+        status=message.status,
+    )
+    db.add(archived_message)
     db.delete(message)
     db.commit()
     return
+
+
+@app.get("/admin/archived-messages", response_model=list[ArchivedMessageResponse])
+def admin_list_archived_messages(
+    admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """List all archived messages."""
+    archived_messages = (
+        db.query(ArchivedMessage)
+        .order_by(ArchivedMessage.archived_at.desc())
+        .all()
+    )
+    return archived_messages
+
+
+@app.delete("/admin/archived-messages/{archive_id}", status_code=204)
+def admin_delete_archived_message(
+    archive_id: int,
+    admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """Permanently delete an archived message."""
+    archived_message = (
+        db.query(ArchivedMessage)
+        .filter(ArchivedMessage.id == archive_id)
+        .first()
+    )
+    if archived_message is None:
+        raise HTTPException(status_code=404, detail="Archived message not found")
+    db.delete(archived_message)
+    db.commit()
+    return
+
+
+@app.post("/admin/archived-messages/cleanup", status_code=200)
+def admin_cleanup_old_archived_messages(
+    admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """Delete archived messages older than 30 days."""
+    from datetime import datetime, timedelta, timezone
+    
+    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+    old_messages = (
+        db.query(ArchivedMessage)
+        .filter(ArchivedMessage.archived_at < thirty_days_ago)
+        .all()
+    )
+    
+    deleted_count = len(old_messages)
+    for msg in old_messages:
+        db.delete(msg)
+    db.commit()
+    
+    return {"message": f"Deleted {deleted_count} archived messages older than 30 days"}
 
 
 @app.get("/admin/users", response_model=list[UserResponse])
@@ -724,6 +830,8 @@ def admin_update_appointment_status(
     if appointment is None:
         raise HTTPException(status_code=404, detail="Appointment not found")
     appointment.status = payload.status
+    if payload.status == "cancelled" and payload.cancellation_reason:
+        appointment.cancellation_reason = payload.cancellation_reason
     db.add(appointment)
     db.commit()
     db.refresh(appointment)
@@ -768,3 +876,22 @@ def admin_demote_user(
     db.commit()
     db.refresh(user)
     return {"message": f"Admin privileges removed from {user.email}", "user": UserResponse.model_validate(user)}
+
+
+@app.post("/admin/users/{user_id}/toggle-active", response_model=UserResponse)
+def admin_toggle_user_active(
+    user_id: int,
+    admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """Toggle user active status (activate/deactivate)."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.id == admin.id:
+        raise HTTPException(status_code=409, detail="Cannot deactivate your own account")
+    user.is_active = not user.is_active
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user

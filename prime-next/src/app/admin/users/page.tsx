@@ -12,6 +12,7 @@ interface User {
   username: string;
   gender: string | null;
   is_admin: boolean;
+  is_active: boolean;
   created_at: string;
 }
 
@@ -63,6 +64,27 @@ export default function AdminUsersPage() {
       });
 
       setMessage({ type: "success", text: "User privileges updated" });
+      loadUsers();
+    } catch (err: unknown) {
+      setMessage({ type: "error", text: err instanceof Error ? err.message : "Error" });
+    }
+  }
+
+  async function toggleActiveStatus(userId: number) {
+    const token = getAdminToken();
+    if (!token) {
+      setMessage({ type: "error", text: "Admin session expired. Please log in again." });
+      router.push("/admin/login");
+      return;
+    }
+
+    try {
+      await apiJson<User>(`/admin/users/${userId}/toggle-active`, {
+        method: "POST",
+        headers: authHeaders(token),
+      });
+
+      setMessage({ type: "success", text: "User status updated" });
       loadUsers();
     } catch (err: unknown) {
       setMessage({ type: "error", text: err instanceof Error ? err.message : "Error" });
@@ -125,6 +147,7 @@ export default function AdminUsersPage() {
                 <th>Name</th>
                 <th>Gender</th>
                 <th>Role</th>
+                <th>Status</th>
                 <th>Joined</th>
                 <th>Actions</th>
               </tr>
@@ -142,6 +165,13 @@ export default function AdminUsersPage() {
                       <span>User</span>
                     )}
                   </td>
+                  <td>
+                    {user.is_active ? (
+                      <span className="status-badge status-done">Active</span>
+                    ) : (
+                      <span className="status-badge status-cancelled">Inactive</span>
+                    )}
+                  </td>
                   <td>{new Date(user.created_at).toLocaleDateString()}</td>
                   <td>
                     <div className="action-links">
@@ -153,6 +183,12 @@ export default function AdminUsersPage() {
                         onClick={() => toggleAdminStatus(user.id, user.is_admin)}
                       >
                         {user.is_admin ? "Remove Admin" : "Make Admin"}
+                      </button>
+                      <button
+                        className={user.is_active ? "delete-btn" : "edit-btn"}
+                        onClick={() => toggleActiveStatus(user.id)}
+                      >
+                        {user.is_active ? "Deactivate" : "Activate"}
                       </button>
                     </div>
                   </td>

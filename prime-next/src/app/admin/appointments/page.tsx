@@ -15,7 +15,9 @@ interface Appointment {
   day: string;
   month: string;
   location: string;
+  document_type: string;
   status: string;
+  cancellation_reason: string | null;
   created_at: string;
 }
 
@@ -28,6 +30,11 @@ export default function AdminAppointmentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [cancelModal, setCancelModal] = useState<{ open: boolean; appointmentId: number | null }>({
+    open: false,
+    appointmentId: null,
+  });
+  const [cancelReason, setCancelReason] = useState("");
 
   useEffect(() => {
     loadAppointments();
@@ -60,6 +67,11 @@ export default function AdminAppointmentsPage() {
       return;
     }
 
+    if (newStatus === "cancelled") {
+      setCancelModal({ open: true, appointmentId });
+      return;
+    }
+
     try {
       await apiJson(`/admin/appointments/${appointmentId}`, {
         method: "PATCH",
@@ -68,6 +80,35 @@ export default function AdminAppointmentsPage() {
       });
 
       setMessage({ type: "success", text: "Appointment updated" });
+      loadAppointments();
+    } catch (err: unknown) {
+      setMessage({ type: "error", text: err instanceof Error ? err.message : "Error" });
+    }
+  }
+
+  async function confirmCancellation() {
+    const token = getAdminToken();
+    if (!token || cancelModal.appointmentId === null) {
+      setMessage({ type: "error", text: "Admin session expired. Please log in again." });
+      router.push("/admin/login");
+      return;
+    }
+
+    if (!cancelReason.trim()) {
+      setMessage({ type: "error", text: "Please provide a cancellation reason" });
+      return;
+    }
+
+    try {
+      await apiJson(`/admin/appointments/${cancelModal.appointmentId}`, {
+        method: "PATCH",
+        headers: authHeaders(token),
+        body: JSON.stringify({ status: "cancelled", cancellation_reason: cancelReason }),
+      });
+
+      setMessage({ type: "success", text: "Appointment cancelled" });
+      setCancelModal({ open: false, appointmentId: null });
+      setCancelReason("");
       loadAppointments();
     } catch (err: unknown) {
       setMessage({ type: "error", text: err instanceof Error ? err.message : "Error" });
@@ -129,8 +170,10 @@ export default function AdminAppointmentsPage() {
                 <th>Name</th>
                 <th>Age</th>
                 <th>Location</th>
+                <th>Document Type</th>
                 <th>Date</th>
                 <th>Status</th>
+                <th>Cancellation Reason</th>
                 <th>Created</th>
                 <th>Actions</th>
               </tr>
@@ -141,6 +184,7 @@ export default function AdminAppointmentsPage() {
                   <td>{appt.name}</td>
                   <td>{appt.age}</td>
                   <td>{appt.location}</td>
+                  <td>{appt.document_type}</td>
                   <td>
                     {appt.month} {appt.day}
                   </td>
@@ -149,6 +193,7 @@ export default function AdminAppointmentsPage() {
                       {appt.status.charAt(0).toUpperCase() + appt.status.slice(1)}
                     </span>
                   </td>
+                  <td>{appt.cancellation_reason || "-"}</td>
                   <td>{new Date(appt.created_at).toLocaleDateString()}</td>
                   <td>
                     <div style={{ display: "flex", gap: 10 }}>
@@ -177,6 +222,77 @@ export default function AdminAppointmentsPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+      
+      {cancelModal.open && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: "#fff",
+            padding: "24px",
+            borderRadius: "8px",
+            maxWidth: "500px",
+            width: "90%",
+            boxShadow: "0 4px 20px rgba(0, 0, 0, 0.15)"
+          }}>
+            <h3 style={{ marginBottom: "16px" }}>Cancellation Reason</h3>
+            <textarea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Please provide a reason for cancelling this appointment..."
+              style={{
+                width: "100%",
+                minHeight: "100px",
+                padding: "12px",
+                border: "1px solid #ddd",
+                borderRadius: "6px",
+                fontSize: "0.95rem",
+                resize: "vertical",
+                marginBottom: "16px"
+              }}
+            />
+            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => {
+                  setCancelModal({ open: false, appointmentId: null });
+                  setCancelReason("");
+                }}
+                style={{
+                  padding: "10px 20px",
+                  border: "1px solid #ddd",
+                  borderRadius: "6px",
+                  background: "#fff",
+                  cursor: "pointer"
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmCancellation}
+                style={{
+                  padding: "10px 20px",
+                  border: "none",
+                  borderRadius: "6px",
+                  background: "#dc3545",
+                  color: "#fff",
+                  cursor: "pointer"
+                }}
+              >
+                Confirm Cancellation
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

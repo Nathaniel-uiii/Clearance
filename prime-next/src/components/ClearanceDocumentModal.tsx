@@ -210,24 +210,16 @@ export function ClearanceDocumentModal({
           </footer>
         </div>
 
-        <div
-          className={`clearance-doc-modal__actions${isView ? " clearance-doc-modal__actions--single" : ""}`}
-        >
-          {isView ? (
-            <button type="button" className="clearance-doc-modal__btn primary" onClick={onDismiss}>
-              Close
+        {!isView && (
+          <div className="clearance-doc-modal__actions">
+            <button type="button" className="clearance-doc-modal__btn secondary" onClick={onDismiss}>
+              Go back
             </button>
-          ) : (
-            <>
-              <button type="button" className="clearance-doc-modal__btn secondary" onClick={onDismiss}>
-                Go back
-              </button>
-              <button type="button" className="clearance-doc-modal__btn primary" onClick={onContinue}>
-                I have read this — submit appointment
-              </button>
-            </>
-          )}
-        </div>
+            <button type="button" className="clearance-doc-modal__btn primary" onClick={onContinue}>
+              I have read this — submit appointment
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

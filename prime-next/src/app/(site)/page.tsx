@@ -29,6 +29,7 @@ export type Appointment = {
   month: string;
   location: string;
   status: string;
+  cancellation_reason: string | null;
   created_at: string;
 };
 
@@ -54,6 +55,7 @@ function normalizeAppointmentRow(raw: Record<string, unknown>): Appointment | nu
     month: String(raw.month ?? ""),
     location: String(raw.location ?? ""),
     status: String(raw.status ?? "pending"),
+    cancellation_reason: raw.cancellation_reason ? String(raw.cancellation_reason) : null,
     created_at: createdAt,
   };
 }
@@ -717,7 +719,7 @@ export default function SiteHomePage() {
                 ) : null}
                 <div className="form-grid">
                   <div className="input-box">
-                    <label htmlFor="name">Full Name</label>
+                    <label htmlFor="name">Full Name *</label>
                     <input
                       type="text"
                       id="name"
@@ -731,7 +733,7 @@ export default function SiteHomePage() {
                   </div>
 
                   <div className="input-box">
-                    <label htmlFor="age">Age</label>
+                    <label htmlFor="age">Age *</label>
                     <input
                       type="number"
                       id="age"
@@ -747,7 +749,7 @@ export default function SiteHomePage() {
                   </div>
 
                   <div className="input-box">
-                    <label htmlFor="address">Address</label>
+                    <label htmlFor="address">Address *</label>
                     <select
                       id="address"
                       className="input-field custom-select"
@@ -792,7 +794,7 @@ export default function SiteHomePage() {
                   </div>
 
                   <div className="input-box">
-                    <label htmlFor="appointmentDate">Pickup Date</label>
+                    <label htmlFor="appointmentDate">Pickup Date *</label>
                     <input
                       type="date"
                       id="appointmentDate"
@@ -811,7 +813,7 @@ export default function SiteHomePage() {
                   </div>
 
                   <div className="input-box">
-                    <label htmlFor="location">Location</label>
+                    <label htmlFor="location">Location *</label>
                     <select
                       id="location"
                       className="input-field custom-select"
@@ -918,7 +920,7 @@ export default function SiteHomePage() {
                   </div>
 
                   <div className="input-box">
-                    <label htmlFor="documentType">Document Type</label>
+                    <label htmlFor="documentType">Document Type *</label>
                     <select
                       id="documentType"
                       className="input-field custom-select"
@@ -1005,6 +1007,11 @@ export default function SiteHomePage() {
                           <p>
                             <strong>Location:</strong> {a.location}
                           </p>
+                          {isCancelled && a.cancellation_reason ? (
+                            <p>
+                              <strong>Cancellation Reason:</strong> {a.cancellation_reason}
+                            </p>
+                          ) : null}
                           {isPending ? (
                             <div
                               className={`timer-info ${canCancel ? "timer-active" : "timer-expired"}`}

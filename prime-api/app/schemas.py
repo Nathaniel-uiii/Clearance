@@ -148,6 +148,7 @@ class AppointmentResponse(BaseModel):
     location: str
     document_type: str
     status: str
+    cancellation_reason: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -174,6 +175,20 @@ class ContactMessageResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ArchivedMessageResponse(BaseModel):
+    id: int
+    original_message_id: int
+    fullname: str
+    email: str
+    phone: Optional[str] = None
+    subject: str
+    message: str
+    status: str
+    archived_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class AdminMessageStatusUpdateRequest(BaseModel):
     status: str = Field(..., pattern="^(new|read|resolved)$")
 
@@ -185,6 +200,7 @@ class UserResponse(BaseModel):
     username: str
     gender: Optional[str] = None
     is_admin: bool
+    is_active: bool = True
     profile_picture: Optional[str] = None
     created_at: datetime
 
@@ -202,6 +218,7 @@ class AdminAppointmentResponse(BaseModel):
     location: str
     document_type: str
     status: str
+    cancellation_reason: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -209,6 +226,7 @@ class AdminAppointmentResponse(BaseModel):
 
 class AppointmentStatusUpdateRequest(BaseModel):
     status: str = Field(..., pattern="^(pending|confirmed|completed|cancelled)$")
+    cancellation_reason: Optional[str] = None
 
 
 class AdminStatsResponse(BaseModel):

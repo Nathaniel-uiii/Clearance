@@ -2,97 +2,101 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { getAdminToken } from "@/lib/auth";
-import { getApiUrl } from "@/lib/api";
-import "@/app/(auth)/auth.css";
+import { apiJson, authHeaders, getApiUrl } from "@/lib/api";
 import "../admin.css";
 
-interface Message {
+interface ArchivedMessage {
   id: number;
+  original_message_id: number;
   fullname: string;
   email: string;
   phone: string | null;
   subject: string;
   message: string;
   status: string;
-  created_at: string;
+  archived_at: string;
 }
 
-const STATUS_OPTIONS = ["all", "new", "read", "resolved"];
-
-export default function AdminMessagesPage() {
+export default function AdminArchivePage() {
   const router = useRouter();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [archivedMessages, setArchivedMessages] = useState<ArchivedMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [deleteModal, setDeleteModal] = useState<{ open: boolean; messageId: number | null }>({
+  const [deleteModal, setDeleteModal] = useState<{ open: boolean; archiveId: number | null }>({
     open: false,
-    messageId: null,
+    archiveId: null,
   });
 
   useEffect(() => {
-    loadMessages();
+    loadArchivedMessages();
   }, []);
 
-  function loadMessages() {
+  async function loadArchivedMessages() {
     const token = getAdminToken();
     if (!token) {
       router.push("/admin/login");
       return;
     }
 
-    fetch(getApiUrl("/admin/messages"), {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch messages");
-        return res.json();
-      })
-      .then((data) => {
-        setMessages(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
+    try {
+      const data = await apiJson<ArchivedMessage[]>("/admin/archived-messages", {
+        headers: authHeaders(token),
       });
+      setArchivedMessages(data);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to fetch archived messages");
+    } finally {
+      setLoading(false);
+    }
   }
-
-  const filteredMessages =
-    statusFilter === "all"
-      ? messages
-      : messages.filter((msg) => msg.status === statusFilter);
 
   async function confirmDelete() {
     const token = getAdminToken();
-    if (!token || deleteModal.messageId === null) {
+    if (!token || deleteModal.archiveId === null) {
       setError("Admin session expired. Please log in again.");
       router.push("/admin/login");
       return;
     }
 
-    const res = await fetch(getApiUrl(`/admin/messages/${deleteModal.messageId}`), {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    try {
+      await apiJson(`/admin/archived-messages/${deleteModal.archiveId}`, {
+        method: "DELETE",
+        headers: authHeaders(token),
+      });
 
-    if (!res.ok) {
-      const body = await res.json();
-      setError(body.detail || "Failed to delete message");
+      setDeleteModal({ open: false, archiveId: null });
+      loadArchivedMessages();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error");
+    }
+  }
+
+  async function cleanupOldMessages() {
+    const token = getAdminToken();
+    if (!token) {
+      setError("Admin session expired. Please log in again.");
+      router.push("/admin/login");
       return;
     }
 
-    setDeleteModal({ open: false, messageId: null });
-    loadMessages();
+    try {
+      const result = await apiJson<{ message: string }>("/admin/archived-messages/cleanup", {
+        method: "POST",
+        headers: authHeaders(token),
+      });
+      alert(result.message);
+      loadArchivedMessages();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error");
+    }
   }
 
   if (loading) {
     return (
       <div className="admin-container">
         <div className="admin-header">
-          <h1>Messages Management</h1>
+          <h1>Archived Messages</h1>
         </div>
         <p>Loading...</p>
       </div>
@@ -102,24 +106,30 @@ export default function AdminMessagesPage() {
   return (
     <div className="admin-container">
       <div className="admin-header">
-        <h1>Messages Management</h1>
-        <p>Total messages: {filteredMessages.length}</p>
+        <h1>Archived Messages</h1>
+        <p>Total archived messages: {archivedMessages.length}</p>
       </div>
 
-      {error ? <div className="alert error">{error}</div> : null}
+      {error && <div className="alert error">{error}</div>}
 
-      <div className="admin-filters">
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-          {STATUS_OPTIONS.map((status) => (
-            <option key={status} value={status}>
-              {status === "all" ? "All" : status.charAt(0).toUpperCase() + status.slice(1)}
-            </option>
-          ))}
-        </select>
+      <div style={{ marginBottom: "16px" }}>
+        <button
+          onClick={cleanupOldMessages}
+          style={{
+            padding: "10px 20px",
+            background: "#dc3545",
+            color: "#fff",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+          }}
+        >
+          Cleanup Messages Older Than 30 Days
+        </button>
       </div>
 
-      {filteredMessages.length === 0 ? (
-        <div className="no-data">No messages found</div>
+      {archivedMessages.length === 0 ? (
+        <div className="no-data">No archived messages found</div>
       ) : (
         <div className="admin-table-wrapper">
           <table className="admin-table">
@@ -129,12 +139,12 @@ export default function AdminMessagesPage() {
                 <th>Subject</th>
                 <th>Email</th>
                 <th>Status</th>
-                <th>Received</th>
-                <th>Action</th>
+                <th>Archived Date</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredMessages.map((msg) => (
+              {archivedMessages.map((msg) => (
                 <tr key={msg.id}>
                   <td>{msg.fullname}</td>
                   <td>{msg.subject}</td>
@@ -144,17 +154,13 @@ export default function AdminMessagesPage() {
                       {msg.status.toUpperCase()}
                     </span>
                   </td>
-                  <td>{new Date(msg.created_at).toLocaleString()}</td>
+                  <td>{new Date(msg.archived_at).toLocaleString()}</td>
                   <td>
-                    <Link href={`/admin/messages/${msg.id}`} className="view-btn">
-                      View
-                    </Link>
                     <button
                       className="delete-btn"
-                      style={{ marginLeft: 8 }}
-                      onClick={() => setDeleteModal({ open: true, messageId: msg.id })}
+                      onClick={() => setDeleteModal({ open: true, archiveId: msg.id })}
                     >
-                      Delete
+                      Delete Permanently
                     </button>
                   </td>
                 </tr>
@@ -185,11 +191,11 @@ export default function AdminMessagesPage() {
             width: "90%",
             boxShadow: "0 4px 20px rgba(0, 0, 0, 0.15)"
           }}>
-            <h3 style={{ marginBottom: "16px" }}>Delete Message</h3>
-            <p style={{ marginBottom: "24px", color: "#666" }}>Are you sure you want to delete this message? This action cannot be undone.</p>
+            <h3 style={{ marginBottom: "16px" }}>Delete Permanently</h3>
+            <p style={{ marginBottom: "24px", color: "#666" }}>Are you sure you want to permanently delete this archived message? This action cannot be undone.</p>
             <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
               <button
-                onClick={() => setDeleteModal({ open: false, messageId: null })}
+                onClick={() => setDeleteModal({ open: false, archiveId: null })}
                 style={{
                   padding: "10px 20px",
                   border: "1px solid #ddd",

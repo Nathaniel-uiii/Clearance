@@ -143,22 +143,6 @@ export default function AdminDashboard() {
           </div>
         ))}
       </div>
-
-      <div className="admin-header">
-        <h2>Quick Actions</h2>
-      </div>
-
-      <div style={{ display: "flex", gap: 15, flexWrap: "wrap" }}>
-        <a href="/admin/users" className="submit" style={{ textDecoration: "none" }}>
-          Manage Users
-        </a>
-        <a href="/admin/appointments" className="submit" style={{ textDecoration: "none" }}>
-          Manage Appointments
-        </a>
-        <a href="/admin/messages" className="submit" style={{ textDecoration: "none" }}>
-          Manage Messages
-        </a>
-      </div>
     </div>
   );
 }
