@@ -1,12 +1,12 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { apiJson } from "@/lib/api";
 
 type ForgotPasswordStep = "email" | "reset";
 
-export default function ForgotPasswordPage() {
+function ForgotPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [step, setStep] = useState<ForgotPasswordStep>("email");
@@ -198,5 +198,13 @@ export default function ForgotPasswordPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ForgotPasswordPage() {
+  return (
+    <Suspense fallback={<div className="wrapper" />}>
+      <ForgotPasswordContent />
+    </Suspense>
   );
 }

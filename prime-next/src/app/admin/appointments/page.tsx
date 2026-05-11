@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getAdminToken } from "@/lib/auth";
-import { apiJson, authHeaders, getApiUrl } from "@/lib/api";
+import { apiJson, authHeaders } from "@/lib/api";
 
 interface Appointment {
   id: number;
@@ -29,6 +29,7 @@ export default function AdminAppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [documentFilter, setDocumentFilter] = useState("all");
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [cancelModal, setCancelModal] = useState<{ open: boolean; appointmentId: number | null }>({
     open: false,
@@ -37,6 +38,9 @@ export default function AdminAppointmentsPage() {
   const [cancelReason, setCancelReason] = useState("");
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setStatusFilter(params.get("status") ?? "all");
+    setDocumentFilter(params.get("document") ?? "all");
     loadAppointments();
   }, []);
 
@@ -115,10 +119,16 @@ export default function AdminAppointmentsPage() {
     }
   }
 
-  const filteredAppointments =
-    statusFilter === "all"
-      ? appointments
-      : appointments.filter((a) => a.status === statusFilter);
+  const documentOptions = useMemo(
+    () => Array.from(new Set(appointments.map((a) => a.document_type).filter(Boolean))).sort(),
+    [appointments],
+  );
+
+  const filteredAppointments = appointments.filter((a) => {
+    const matchesStatus = statusFilter === "all" || a.status === statusFilter;
+    const matchesDocument = documentFilter === "all" || a.document_type === documentFilter;
+    return matchesStatus && matchesDocument;
+  });
 
   if (loading) {
     return (
@@ -157,6 +167,14 @@ export default function AdminAppointmentsPage() {
           <option value="confirmed">Confirmed</option>
           <option value="completed">Completed</option>
           <option value="cancelled">Cancelled</option>
+        </select>
+        <select value={documentFilter} onChange={(e) => setDocumentFilter(e.target.value)}>
+          <option value="all">All Document Types</option>
+          {documentOptions.map((documentType) => (
+            <option key={documentType} value={documentType}>
+              {documentType}
+            </option>
+          ))}
         </select>
       </div>
 

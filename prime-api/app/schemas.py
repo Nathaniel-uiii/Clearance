@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Optional
+import re
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
@@ -20,6 +21,19 @@ APPOINTMENT_DOCUMENT_TYPES = frozenset(
         "Proof of Residency",
     }
 )
+
+_CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
+def clean_text(value: str, field: str, *, max_length: int = 2000) -> str:
+    cleaned = _CONTROL_RE.sub("", value).strip()
+    if not cleaned:
+        raise ValueError(f"{field} is required.")
+    if "<" in cleaned or ">" in cleaned:
+        raise ValueError(f"{field} cannot contain angle brackets.")
+    if len(cleaned) > max_length:
+        raise ValueError(f"{field} is too long.")
+    return cleaned
 
 
 class RegisterRequest(BaseModel):
@@ -160,6 +174,34 @@ class ContactMessageCreateRequest(BaseModel):
     phone: Optional[str] = None
     subject: str
     message: str
+
+    @field_validator("fullname")
+    @classmethod
+    def contact_fullname(cls, v: str) -> str:
+        err = validate_person_name(v, "Full name")
+        if err:
+            raise ValueError(err)
+        return clean_text(v, "Full name", max_length=255)
+
+    @field_validator("phone")
+    @classmethod
+    def contact_phone(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or not v.strip():
+            return None
+        cleaned = clean_text(v, "Phone", max_length=50)
+        if not re.fullmatch(r"\+?[0-9\s().-]{7,20}", cleaned):
+            raise ValueError("Please enter a valid phone number.")
+        return cleaned
+
+    @field_validator("subject")
+    @classmethod
+    def contact_subject(cls, v: str) -> str:
+        return clean_text(v, "Subject", max_length=255)
+
+    @field_validator("message")
+    @classmethod
+    def contact_message(cls, v: str) -> str:
+        return clean_text(v, "Message", max_length=2000)
 
 
 class ContactMessageResponse(BaseModel):

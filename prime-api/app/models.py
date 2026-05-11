@@ -26,7 +26,7 @@ class PasswordResetOTP(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     email: Mapped[str] = mapped_column(String(255), index=True)
-    token: Mapped[str] = mapped_column("otp_code", String(64))
+    token: Mapped[str] = mapped_column("otp_code", String(64), index=True)
     expires_at: Mapped[object] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[object] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -38,7 +38,7 @@ class EmailVerificationOTP(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     email: Mapped[str] = mapped_column(String(255), index=True)
-    token: Mapped[str] = mapped_column("otp_code", String(64))
+    token: Mapped[str] = mapped_column("otp_code", String(64), index=True)
     expires_at: Mapped[object] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[object] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -49,7 +49,7 @@ class Appointment(Base):
     __tablename__ = "appointments"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), index=True)
     name: Mapped[str] = mapped_column(String(255))
     age: Mapped[int] = mapped_column(Integer)
     address: Mapped[str] = mapped_column(Text)
@@ -57,7 +57,7 @@ class Appointment(Base):
     month: Mapped[str] = mapped_column(String(50))
     location: Mapped[str] = mapped_column(Text)
     document_type: Mapped[str] = mapped_column(String(100))
-    status: Mapped[str] = mapped_column(String(50), default="pending")
+    status: Mapped[str] = mapped_column(String(50), default="pending", index=True)
     cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[object] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -73,7 +73,7 @@ class ContactMessage(Base):
     phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
     subject: Mapped[str] = mapped_column(String(255))
     message: Mapped[str] = mapped_column(Text)
-    status: Mapped[str] = mapped_column(String(50), default="new")
+    status: Mapped[str] = mapped_column(String(50), default="new", index=True)
     created_at: Mapped[object] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getAdminToken } from "@/lib/auth";
@@ -32,11 +32,7 @@ export default function AdminMessagesPage() {
     messageId: null,
   });
 
-  useEffect(() => {
-    loadMessages();
-  }, []);
-
-  function loadMessages() {
+  const loadMessages = useCallback(() => {
     const token = getAdminToken();
     if (!token) {
       router.push("/admin/login");
@@ -58,7 +54,11 @@ export default function AdminMessagesPage() {
         setError(err.message);
         setLoading(false);
       });
-  }
+  }, [router]);
+
+  useEffect(() => {
+    loadMessages();
+  }, [loadMessages]);
 
   const filteredMessages =
     statusFilter === "all"

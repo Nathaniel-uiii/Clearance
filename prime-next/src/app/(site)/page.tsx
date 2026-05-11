@@ -15,7 +15,13 @@ import {
   parseApiCreatedAtUtcMs,
   secondsUntilCancelDeadline,
 } from "@/lib/appointmentSchedule";
-import { validateAppointmentBaldomar } from "@/lib/baldomarValidation";
+import {
+  validateAppointmentBaldomar,
+  validateEmailAddress,
+  validatePersonName,
+  validatePhoneNumber,
+  validateRequired,
+} from "@/lib/baldomarValidation";
 import { ClearanceDocumentModal } from "@/components/ClearanceDocumentModal";
 
 const MONTHLY_APPOINTMENT_LIMIT = 5;
@@ -37,6 +43,12 @@ type ClearanceModalState =
   | { open: false }
   | { open: true; purpose: "booking" }
   | { open: true; purpose: "view"; appointment: Appointment };
+
+type AppointmentErrors = Partial<
+  Record<"fullName" | "age" | "address" | "appointmentDate" | "location" | "documentType", string>
+>;
+
+type ContactErrors = Partial<Record<"fullname" | "email" | "phone" | "subject" | "message", string>>;
 
 function normalizeAppointmentRow(raw: Record<string, unknown>): Appointment | null {
   const id = Number(raw.id);
@@ -112,6 +124,7 @@ export default function SiteHomePage() {
   const [apptBusy, setApptBusy] = useState(false);
   const [apptError, setApptError] = useState<string | null>(null);
   const [apptSuccess, setApptSuccess] = useState<string | null>(null);
+  const [appointmentErrors, setAppointmentErrors] = useState<AppointmentErrors>({});
   const appointmentsListRef = useRef<HTMLDivElement>(null);
 
   const [fullName, setFullName] = useState("");
@@ -129,14 +142,96 @@ export default function SiteHomePage() {
   const [contactBusy, setContactBusy] = useState(false);
   const [contactError, setContactError] = useState<string | null>(null);
   const [contactSuccess, setContactSuccess] = useState<string | null>(null);
+  const [contactErrors, setContactErrors] = useState<ContactErrors>({});
   /** True only after user confirms the sample clearance on this booking attempt (not persisted). */
   const clearanceBookingDocAckRef = useRef(false);
+
+  function validateAppointmentField(
+    field: keyof AppointmentErrors,
+    value: string,
+  ): string | null {
+    if (field === "fullName") return validatePersonName(value, "Name");
+    if (field === "age") {
+      const ageNum = Number(value);
+      if (!value.trim()) return "Age is required.";
+      if (!Number.isFinite(ageNum) || ageNum < 18) return "You must be 18 years or older.";
+      if (ageNum > 120) return "Age must be 120 or below.";
+      return null;
+    }
+    if (field === "address") return validateRequired(value, "Address");
+    if (field === "appointmentDate") return validateRequired(value, "Pickup date");
+    if (field === "location") return validateRequired(value, "Location");
+    return validateRequired(value, "Document type");
+  }
+
+  function validateContactField(field: keyof ContactErrors, value: string): string | null {
+    if (field === "fullname") return validatePersonName(value, "Full name");
+    if (field === "email") return validateEmailAddress(value);
+    if (field === "phone") return validatePhoneNumber(value);
+    if (field === "subject") return validateRequired(value, "Subject");
+    return validateRequired(value, "Message");
+  }
+
+  function updateAppointmentField(
+    field: keyof AppointmentErrors,
+    value: string,
+    setter: (next: string) => void,
+  ) {
+    setter(value);
+    setAppointmentErrors((prev) => ({
+      ...prev,
+      [field]: validateAppointmentField(field, value) ?? undefined,
+    }));
+    setApptError(null);
+  }
+
+  function updateContactField(
+    field: keyof ContactErrors,
+    value: string,
+    setter: (next: string) => void,
+  ) {
+    setter(value);
+    setContactErrors((prev) => ({
+      ...prev,
+      [field]: validateContactField(field, value) ?? undefined,
+    }));
+    setContactError(null);
+  }
+
+  function validateAllAppointmentFields(): AppointmentErrors {
+    return {
+      fullName: validateAppointmentField("fullName", fullName) ?? undefined,
+      age: validateAppointmentField("age", age) ?? undefined,
+      address: validateAppointmentField("address", address) ?? undefined,
+      appointmentDate: validateAppointmentField("appointmentDate", appointmentDate) ?? undefined,
+      location: validateAppointmentField("location", location) ?? undefined,
+      documentType: validateAppointmentField("documentType", documentType) ?? undefined,
+    };
+  }
+
+  function validateAllContactFields(): ContactErrors {
+    return {
+      fullname: validateContactField("fullname", contactFullName) ?? undefined,
+      email: validateContactField("email", contactEmail) ?? undefined,
+      phone: validateContactField("phone", contactPhone) ?? undefined,
+      subject: validateContactField("subject", contactSubject) ?? undefined,
+      message: validateContactField("message", contactMessage) ?? undefined,
+    };
+  }
 
   async function handleContactSubmit(e: FormEvent) {
     e.preventDefault();
     setContactBusy(true);
     setContactError(null);
     setContactSuccess(null);
+    const nextErrors = validateAllContactFields();
+    setContactErrors(nextErrors);
+    const firstError = Object.values(nextErrors).find(Boolean);
+    if (firstError) {
+      setContactError(firstError);
+      setContactBusy(false);
+      return;
+    }
 
     try {
       await apiJson("/contact", {
@@ -155,8 +250,13 @@ export default function SiteHomePage() {
       setContactPhone("");
       setContactSubject("");
       setContactMessage("");
+      setContactErrors({});
     } catch (err: unknown) {
-      setContactError(err instanceof Error ? err.message : "Failed to send message");
+      const message = err instanceof Error ? err.message : "Failed to send message";
+      setContactError(message);
+      if (message.toLowerCase().includes("email")) {
+        setContactErrors((prev) => ({ ...prev, email: message }));
+      }
     } finally {
       setContactBusy(false);
     }
@@ -274,7 +374,7 @@ export default function SiteHomePage() {
       return;
     }
 
-    const [year, monthStr, dayStr] = appointmentDate.split("-");
+    const [, monthStr, dayStr] = appointmentDate.split("-");
     const dayNum = parseInt(dayStr, 10);
     const monthNum = parseInt(monthStr, 10) - 1; // Convert to 0-indexed
     const monthName = APPOINTMENT_MONTH_NAMES[monthNum];
@@ -310,6 +410,7 @@ export default function SiteHomePage() {
       setAppointmentDate("");
       setLocation("");
       setDocumentType("");
+      setAppointmentErrors({});
       clearanceBookingDocAckRef.current = false;
       if (!created) {
         setApptError("Booking saved but response was invalid. Refresh the page.");
@@ -392,6 +493,13 @@ export default function SiteHomePage() {
     e.preventDefault();
     setApptError(null);
     setApptSuccess(null);
+    const nextErrors = validateAllAppointmentFields();
+    setAppointmentErrors(nextErrors);
+    const firstError = Object.values(nextErrors).find(Boolean);
+    if (firstError) {
+      setApptError(firstError);
+      return;
+    }
     const token = getToken();
     if (!token) {
       setApptError("Please log in to book an appointment.");
@@ -411,23 +519,30 @@ export default function SiteHomePage() {
     
     // Parse the date YYYY-MM-DD to day and month name
     if (!appointmentDate) {
+      setAppointmentErrors((prev) => ({ ...prev, appointmentDate: "Please select a date." }));
       setApptError("Please select a date.");
       return;
     }
-    const [year, monthStr, dayStr] = appointmentDate.split("-");
+    const [, monthStr, dayStr] = appointmentDate.split("-");
     const dayNum = parseInt(dayStr, 10);
     const monthNum = parseInt(monthStr, 10) - 1; // Convert to 0-indexed
     const monthName = APPOINTMENT_MONTH_NAMES[monthNum];
     
     if (!dayNum || !monthName) {
+      setAppointmentErrors((prev) => ({ ...prev, appointmentDate: "Please select day and month." }));
       setApptError("Please select day and month.");
       return;
     }
     if (!documentType) {
+      setAppointmentErrors((prev) => ({ ...prev, documentType: "Please select a document type." }));
       setApptError("Please select a document type.");
       return;
     }
     if (!canBookAtLeastHoursAhead(dayNum, monthName)) {
+      setAppointmentErrors((prev) => ({
+        ...prev,
+        appointmentDate: `Appointments must be at least ${MIN_HOURS_BEFORE_APPOINTMENT} hours away.`,
+      }));
       setApptError(
         `Appointments must be at least ${MIN_HOURS_BEFORE_APPOINTMENT} hours away. ` +
           `Your date is scheduled at ${String(APPOINTMENT_START_HOUR).padStart(2, "0")}:00 (${APPOINTMENT_TZ}).`,
@@ -723,13 +838,28 @@ export default function SiteHomePage() {
                     <input
                       type="text"
                       id="name"
-                      className="input-field"
+                      className={`input-field ${appointmentErrors.fullName ? "input-field--error" : ""}`}
                       name="name"
                       placeholder="Enter Your Full Name"
                       required
                       value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
+                      onChange={(e) =>
+                        updateAppointmentField("fullName", e.target.value, setFullName)
+                      }
+                      onBlur={() =>
+                        setAppointmentErrors((prev) => ({
+                          ...prev,
+                          fullName: validateAppointmentField("fullName", fullName) ?? undefined,
+                        }))
+                      }
+                      aria-invalid={Boolean(appointmentErrors.fullName)}
+                      aria-describedby={appointmentErrors.fullName ? "appt-name-error" : undefined}
                     />
+                    {appointmentErrors.fullName ? (
+                      <div className="field-error" id="appt-name-error">
+                        {appointmentErrors.fullName}
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="input-box">
@@ -737,26 +867,51 @@ export default function SiteHomePage() {
                     <input
                       type="number"
                       id="age"
-                      className="input-field"
+                      className={`input-field ${appointmentErrors.age ? "input-field--error" : ""}`}
                       name="age"
                       placeholder="Enter Your Age"
                       min={18}
                       max={120}
                       required
                       value={age}
-                      onChange={(e) => setAge(e.target.value)}
+                      onChange={(e) => updateAppointmentField("age", e.target.value, setAge)}
+                      onBlur={() =>
+                        setAppointmentErrors((prev) => ({
+                          ...prev,
+                          age: validateAppointmentField("age", age) ?? undefined,
+                        }))
+                      }
+                      aria-invalid={Boolean(appointmentErrors.age)}
+                      aria-describedby={appointmentErrors.age ? "appt-age-error" : undefined}
                     />
+                    {appointmentErrors.age ? (
+                      <div className="field-error" id="appt-age-error">
+                        {appointmentErrors.age}
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="input-box">
                     <label htmlFor="address">Address *</label>
                     <select
                       id="address"
-                      className="input-field custom-select"
+                      className={`input-field custom-select ${appointmentErrors.address ? "input-field--error" : ""}`}
                       name="address"
                       required
                       value={address}
-                      onChange={(e) => setAddress(e.target.value)}
+                      onChange={(e) =>
+                        updateAppointmentField("address", e.target.value, setAddress)
+                      }
+                      onBlur={() =>
+                        setAppointmentErrors((prev) => ({
+                          ...prev,
+                          address: validateAppointmentField("address", address) ?? undefined,
+                        }))
+                      }
+                      aria-invalid={Boolean(appointmentErrors.address)}
+                      aria-describedby={
+                        appointmentErrors.address ? "appt-address-error" : undefined
+                      }
                     >
                       <option value="">Select Your Address</option>
                       <option value="Antonio Luna">Antonio Luna</option>
@@ -791,6 +946,11 @@ export default function SiteHomePage() {
                       <option value="Soriano">Soriano</option>
                       <option value="Tolosa">Tolosa</option>
                     </select>
+                    {appointmentErrors.address ? (
+                      <div className="field-error" id="appt-address-error">
+                        {appointmentErrors.address}
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="input-box">
@@ -798,14 +958,39 @@ export default function SiteHomePage() {
                     <input
                       type="date"
                       id="appointmentDate"
-                      className="input-field"
+                      className={`input-field ${appointmentErrors.appointmentDate ? "input-field--error" : ""}`}
                       name="appointmentDate"
                       required
                       value={appointmentDate}
-                      onChange={(e) => setAppointmentDate(e.target.value)}
+                      onChange={(e) =>
+                        updateAppointmentField(
+                          "appointmentDate",
+                          e.target.value,
+                          setAppointmentDate,
+                        )
+                      }
+                      onBlur={() =>
+                        setAppointmentErrors((prev) => ({
+                          ...prev,
+                          appointmentDate:
+                            validateAppointmentField("appointmentDate", appointmentDate) ??
+                            undefined,
+                        }))
+                      }
                       min={new Date().toISOString().split("T")[0]}
+                      aria-invalid={Boolean(appointmentErrors.appointmentDate)}
+                      aria-describedby={
+                        appointmentErrors.appointmentDate
+                          ? "appt-date-error appt-date-hint"
+                          : "appt-date-hint"
+                      }
                     />
-                    <p className="appointment-schedule-hint">
+                    {appointmentErrors.appointmentDate ? (
+                      <div className="field-error" id="appt-date-error">
+                        {appointmentErrors.appointmentDate}
+                      </div>
+                    ) : null}
+                    <p className="appointment-schedule-hint" id="appt-date-hint">
                       Date uses {APPOINTMENT_START_HOUR}:00 {APPOINTMENT_TZ}. Book at least{" "}
                       {MIN_HOURS_BEFORE_APPOINTMENT} hours ahead; cancellation closes within{" "}
                       {MIN_HOURS_BEFORE_APPOINTMENT} hours of booking.
@@ -816,11 +1001,23 @@ export default function SiteHomePage() {
                     <label htmlFor="location">Location *</label>
                     <select
                       id="location"
-                      className="input-field custom-select"
+                      className={`input-field custom-select ${appointmentErrors.location ? "input-field--error" : ""}`}
                       name="location"
                       required
                       value={location}
-                      onChange={(e) => setLocation(e.target.value)}
+                      onChange={(e) =>
+                        updateAppointmentField("location", e.target.value, setLocation)
+                      }
+                      onBlur={() =>
+                        setAppointmentErrors((prev) => ({
+                          ...prev,
+                          location: validateAppointmentField("location", location) ?? undefined,
+                        }))
+                      }
+                      aria-invalid={Boolean(appointmentErrors.location)}
+                      aria-describedby={
+                        appointmentErrors.location ? "appt-location-error" : undefined
+                      }
                     >
                       <option value="">Select Location</option>
                       <option value="Antonio Luna, Cabadbaran City">
@@ -917,17 +1114,35 @@ export default function SiteHomePage() {
                         Tolosa, Cabadbaran City
                       </option>
                     </select>
+                    {appointmentErrors.location ? (
+                      <div className="field-error" id="appt-location-error">
+                        {appointmentErrors.location}
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="input-box">
                     <label htmlFor="documentType">Document Type *</label>
                     <select
                       id="documentType"
-                      className="input-field custom-select"
+                      className={`input-field custom-select ${appointmentErrors.documentType ? "input-field--error" : ""}`}
                       name="documentType"
                       required
                       value={documentType}
-                      onChange={(e) => setDocumentType(e.target.value)}
+                      onChange={(e) =>
+                        updateAppointmentField("documentType", e.target.value, setDocumentType)
+                      }
+                      onBlur={() =>
+                        setAppointmentErrors((prev) => ({
+                          ...prev,
+                          documentType:
+                            validateAppointmentField("documentType", documentType) ?? undefined,
+                        }))
+                      }
+                      aria-invalid={Boolean(appointmentErrors.documentType)}
+                      aria-describedby={
+                        appointmentErrors.documentType ? "appt-document-error" : undefined
+                      }
                     >
                       <option value="">Select Document Type</option>
                       <option value="Barangay Clearance">Barangay Clearance</option>
@@ -935,6 +1150,11 @@ export default function SiteHomePage() {
                       <option value="Business Permit">Business Permit</option>
                       <option value="Proof of Residency">Proof of Residency</option>
                     </select>
+                    {appointmentErrors.documentType ? (
+                      <div className="field-error" id="appt-document-error">
+                        {appointmentErrors.documentType}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
 
@@ -1176,9 +1396,27 @@ export default function SiteHomePage() {
                     name="fullname"
                     placeholder="Full Name"
                     value={contactFullName}
-                    onChange={(e) => setContactFullName(e.target.value)}
+                    onChange={(e) =>
+                      updateContactField("fullname", e.target.value, setContactFullName)
+                    }
+                    onBlur={() =>
+                      setContactErrors((prev) => ({
+                        ...prev,
+                        fullname: validateContactField("fullname", contactFullName) ?? undefined,
+                      }))
+                    }
+                    className={contactErrors.fullname ? "input-field--error" : undefined}
+                    aria-invalid={Boolean(contactErrors.fullname)}
+                    aria-describedby={
+                      contactErrors.fullname ? "contact-fullname-error" : undefined
+                    }
                     required
                   />
+                  {contactErrors.fullname ? (
+                    <div className="field-error" id="contact-fullname-error">
+                      {contactErrors.fullname}
+                    </div>
+                  ) : null}
                 </div>
                 <div className="input-box">
                   <input
@@ -1186,9 +1424,23 @@ export default function SiteHomePage() {
                     name="email"
                     placeholder="Email Address"
                     value={contactEmail}
-                    onChange={(e) => setContactEmail(e.target.value)}
+                    onChange={(e) => updateContactField("email", e.target.value, setContactEmail)}
+                    onBlur={() =>
+                      setContactErrors((prev) => ({
+                        ...prev,
+                        email: validateContactField("email", contactEmail) ?? undefined,
+                      }))
+                    }
+                    className={contactErrors.email ? "input-field--error" : undefined}
+                    aria-invalid={Boolean(contactErrors.email)}
+                    aria-describedby={contactErrors.email ? "contact-email-error" : undefined}
                     required
                   />
+                  {contactErrors.email ? (
+                    <div className="field-error" id="contact-email-error">
+                      {contactErrors.email}
+                    </div>
+                  ) : null}
                 </div>
               </div>
               <div className="input-group">
@@ -1198,8 +1450,22 @@ export default function SiteHomePage() {
                     name="phone"
                     placeholder="Phone Number"
                     value={contactPhone}
-                    onChange={(e) => setContactPhone(e.target.value)}
+                    onChange={(e) => updateContactField("phone", e.target.value, setContactPhone)}
+                    onBlur={() =>
+                      setContactErrors((prev) => ({
+                        ...prev,
+                        phone: validateContactField("phone", contactPhone) ?? undefined,
+                      }))
+                    }
+                    className={contactErrors.phone ? "input-field--error" : undefined}
+                    aria-invalid={Boolean(contactErrors.phone)}
+                    aria-describedby={contactErrors.phone ? "contact-phone-error" : undefined}
                   />
+                  {contactErrors.phone ? (
+                    <div className="field-error" id="contact-phone-error">
+                      {contactErrors.phone}
+                    </div>
+                  ) : null}
                 </div>
                 <div className="input-box">
                   <input
@@ -1207,9 +1473,27 @@ export default function SiteHomePage() {
                     name="subject"
                     placeholder="Subject"
                     value={contactSubject}
-                    onChange={(e) => setContactSubject(e.target.value)}
+                    onChange={(e) =>
+                      updateContactField("subject", e.target.value, setContactSubject)
+                    }
+                    onBlur={() =>
+                      setContactErrors((prev) => ({
+                        ...prev,
+                        subject: validateContactField("subject", contactSubject) ?? undefined,
+                      }))
+                    }
+                    className={contactErrors.subject ? "input-field--error" : undefined}
+                    aria-invalid={Boolean(contactErrors.subject)}
+                    aria-describedby={
+                      contactErrors.subject ? "contact-subject-error" : undefined
+                    }
                     required
                   />
+                  {contactErrors.subject ? (
+                    <div className="field-error" id="contact-subject-error">
+                      {contactErrors.subject}
+                    </div>
+                  ) : null}
                 </div>
               </div>
               <div className="input-box">
@@ -1217,9 +1501,23 @@ export default function SiteHomePage() {
                   name="message"
                   placeholder="Your Message"
                   value={contactMessage}
-                  onChange={(e) => setContactMessage(e.target.value)}
+                  onChange={(e) => updateContactField("message", e.target.value, setContactMessage)}
+                  onBlur={() =>
+                    setContactErrors((prev) => ({
+                      ...prev,
+                      message: validateContactField("message", contactMessage) ?? undefined,
+                    }))
+                  }
+                  className={contactErrors.message ? "input-field--error" : undefined}
+                  aria-invalid={Boolean(contactErrors.message)}
+                  aria-describedby={contactErrors.message ? "contact-message-error" : undefined}
                   required
                 />
+                {contactErrors.message ? (
+                  <div className="field-error" id="contact-message-error">
+                    {contactErrors.message}
+                  </div>
+                ) : null}
               </div>
               <button type="submit" className="submit-btn" disabled={contactBusy}>
                 {contactBusy ? "Sending..." : "Send Message"} <i className="bx bx-send" />

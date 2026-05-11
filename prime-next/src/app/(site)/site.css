@@ -881,6 +881,32 @@ form {
     box-shadow: 0 8px 24px rgba(76, 175, 80, 0.25);
 }
 
+.submit-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.72;
+    transform: none;
+}
+
+.submit-btn:disabled .btn-text::after,
+.contact .submit-btn:disabled::after {
+    content: "";
+    width: 0.85em;
+    height: 0.85em;
+    margin-left: 8px;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    border-top-color: #ffffff;
+    border-radius: 999px;
+    display: inline-block;
+    vertical-align: -0.12em;
+    animation: formSpin 0.8s linear infinite;
+}
+
+@keyframes formSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 .btn-text {
     font-size: 1em;
 }
@@ -953,6 +979,23 @@ form {
     background: #fff;
     outline: none;
     box-shadow: 0 0 0 3px rgba(102, 102, 102, 0.3);
+}
+
+#book .input-field.input-field--error,
+.appointment-form .input-field.input-field--error,
+.contact .input-box input.input-field--error,
+.contact .input-box textarea.input-field--error {
+    border-color: #dc2626;
+    background: #fff1f2;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.16);
+}
+
+.field-error {
+    margin-top: 6px;
+    color: #b91c1c;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    font-weight: 600;
 }
 
 /* Booking form: black placeholder text (overrides global .input-field::placeholder above) */

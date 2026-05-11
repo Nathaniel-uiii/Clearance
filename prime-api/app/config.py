@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     )
 
     DATABASE_URL: str = "sqlite:///./prime_local.db"
+    ENVIRONMENT: str = "development"
 
     JWT_SECRET: str = "replace-with-a-long-random-secret-at-least-32-characters"
     JWT_ALG: str = "HS256"
@@ -35,6 +36,9 @@ class Settings(BaseSettings):
     SMTP_FROM_NAME: str = "PRIME"
 
     FRONTEND_URL: str = "http://localhost:3000"
+
+    ADMIN_EMAIL: str = "admin@admin.com"
+    ADMIN_PASSWORD: str = "admin123"
 
 
 settings = Settings()

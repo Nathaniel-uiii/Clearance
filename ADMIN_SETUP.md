@@ -44,24 +44,21 @@ ALTER TABLE public.users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT FALSE;
 
 ### Step 2: Create First Admin User
 
-You need to create at least one admin user. You can do this in two ways:
+The API can bootstrap one admin user on startup. Configure these values in the backend environment before the first run:
 
-#### Option A: Using the Database
+```env
+ADMIN_EMAIL=your-admin@example.com
+ADMIN_PASSWORD=<strong-temporary-bootstrap-password>
+```
+
+If these are not set, local development still uses `admin@admin.com` / `admin123`. Do not use those defaults in production.
+
+You can also promote an existing user manually:
+
 ```sql
 UPDATE public.users 
 SET is_admin = TRUE 
 WHERE email = 'your-email@example.com';
-```
-
-#### Option B: Using a Script
-Create a temporary admin by directly executing SQL in your database admin panel (Supabase Dashboard or similar):
-
-```sql
--- Get your user ID first
-SELECT id FROM public.users WHERE email = 'your-email@example.com';
-
--- Then update them
-UPDATE public.users SET is_admin = TRUE WHERE id = YOUR_USER_ID;
 ```
 
 ### Step 3: Access Admin Panel
@@ -144,6 +141,8 @@ The admin functionality is integrated into the existing FastAPI backend:
 3. **Self-Demotion Prevention**: Admins cannot demote themselves
 4. **JWT Authentication**: All admin endpoints require valid JWT tokens
 5. **Authorization Check**: Every admin endpoint verifies the user has `is_admin = true`
+6. **Production Secrets**: Set `ENVIRONMENT=production`, a strong `JWT_SECRET`, and real SMTP credentials before deploying
+7. **Rate Limiting**: Login, registration, and password reset endpoints are rate-limited per IP/email
 
 ## Troubleshooting
 

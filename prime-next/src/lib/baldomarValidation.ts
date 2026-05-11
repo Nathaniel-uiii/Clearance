@@ -65,6 +65,29 @@ export function validatePasswordBaldomar(password: string): string | null {
   return null;
 }
 
+export function validateEmailAddress(email: string): string | null {
+  const value = email.trim();
+  if (!value) return "Email is required.";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    return "Please enter a valid email address.";
+  }
+  return null;
+}
+
+export function validateRequired(value: string, field: string): string | null {
+  if (!value.trim()) return `${field} is required.`;
+  return null;
+}
+
+export function validatePhoneNumber(phone: string): string | null {
+  const value = phone.trim();
+  if (!value) return null;
+  if (!/^\+?[0-9\s().-]{7,20}$/.test(value)) {
+    return "Please enter a valid phone number.";
+  }
+  return null;
+}
+
 export function validateOptionalSecurityAnswer(
   value: string | null | undefined,
   field: string,
@@ -97,9 +120,8 @@ export function validateRegisterForm(input: {
   if (genderErr) return genderErr;
   const pwErr = validatePasswordBaldomar(input.password);
   if (pwErr) return pwErr;
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) {
-    return "Please enter a valid email address.";
-  }
+  const emailErr = validateEmailAddress(input.email);
+  if (emailErr) return emailErr;
   return null;
 }
 

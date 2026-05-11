@@ -69,13 +69,19 @@ def run_startup_migrations() -> None:
             cols = conn.execute(text("PRAGMA table_info(appointments)")).fetchall()
             names = {row[1] for row in cols}
             if "document_type" in names:
-                return
-            conn.execute(
-                text(
-                    "ALTER TABLE appointments ADD COLUMN document_type "
-                    "VARCHAR(100) NOT NULL DEFAULT 'Barangay Clearance'"
+                pass
+            else:
+                conn.execute(
+                    text(
+                        "ALTER TABLE appointments ADD COLUMN document_type "
+                        "VARCHAR(100) NOT NULL DEFAULT 'Barangay Clearance'"
+                    )
                 )
-            )
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_appointments_user_id ON appointments (user_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_appointments_status ON appointments (status)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_contact_messages_status ON contact_messages (status)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_password_reset_otps_otp_code ON password_reset_otps (otp_code)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_email_verification_otps_otp_code ON email_verification_otps (otp_code)"))
         elif dialect == "postgresql":
             # Add is_email_verified column to users table
             conn.execute(
@@ -121,24 +127,29 @@ def run_startup_migrations() -> None:
                     "ALTER TABLE appointments ALTER COLUMN document_type SET NOT NULL"
                 )
             )
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_appointments_user_id ON appointments (user_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_appointments_status ON appointments (status)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_contact_messages_status ON contact_messages (status)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_password_reset_otps_otp_code ON password_reset_otps (otp_code)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_email_verification_otps_otp_code ON email_verification_otps (otp_code)"))
 
 
 # Old seed in supabase_schema.sql did not verify against admin123; reset only this exact hash.
 _LEGACY_BAD_ADMIN_HASH = (
     "$2b$12$R9h7cIPz0gi.URNNX3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jKMm2"
 )
-_DEFAULT_ADMIN_EMAIL = "admin@admin.com"
-_DEFAULT_ADMIN_PASSWORD = "admin123"
-
 
 def ensure_default_admin_user() -> None:
-    """Create admin@admin.com if missing; fix legacy broken bcrypt seed so admin123 works."""
+    """Create configured admin user if missing; fix legacy broken bcrypt seed."""
     from app.security import hash_password
+
+    admin_email = settings.ADMIN_EMAIL
+    admin_password = settings.ADMIN_PASSWORD
 
     db = SessionLocal()
     try:
         # Use raw SQL to avoid model issues during migration
-        result = db.execute(text("SELECT id, password_hash, is_admin FROM users WHERE email = :email"), {"email": _DEFAULT_ADMIN_EMAIL})
+        result = db.execute(text("SELECT id, password_hash, is_admin FROM users WHERE email = :email"), {"email": admin_email})
         user_row = result.first()
         
         if user_row is None:
@@ -149,9 +160,9 @@ def ensure_default_admin_user() -> None:
                     "VALUES (:email, :username, :password_hash, :gender, :is_admin, :is_email_verified)"
                 ),
                 {
-                    "email": _DEFAULT_ADMIN_EMAIL,
+                    "email": admin_email,
                     "username": "Admin User", 
-                    "password_hash": hash_password(_DEFAULT_ADMIN_PASSWORD),
+                    "password_hash": hash_password(admin_password),
                     "gender": None,
                     "is_admin": True,
                     "is_email_verified": True,  # Admin should be verified
@@ -166,7 +177,7 @@ def ensure_default_admin_user() -> None:
         if password_hash == _LEGACY_BAD_ADMIN_HASH:
             db.execute(
                 text("UPDATE users SET password_hash = :password_hash WHERE id = :id"),
-                {"password_hash": hash_password(_DEFAULT_ADMIN_PASSWORD), "id": user_id}
+                {"password_hash": hash_password(admin_password), "id": user_id}
             )
             db.commit()
             return

@@ -1,14 +1,16 @@
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone, timedelta
+import logging
 import secrets
 import smtplib
+import time
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import extract, func
+from sqlalchemy import extract, func, text
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -56,10 +58,51 @@ from app.scheduling import (
 MONTHLY_APPOINTMENT_LIMIT = 5
 
 security = HTTPBearer(auto_error=False)
+logger = logging.getLogger("prime_api")
+
+JWT_PLACEHOLDER = "replace-with-a-long-random-secret-at-least-32-characters"
+RATE_LIMITS: dict[tuple[str, str], list[float]] = {}
+
+
+def is_production() -> bool:
+    return settings.ENVIRONMENT.lower() in {"prod", "production"}
+
+
+def client_key(request: Request, email: str | None = None) -> str:
+    forwarded = request.headers.get("x-forwarded-for", "")
+    ip = forwarded.split(",", 1)[0].strip() or (request.client.host if request.client else "unknown")
+    normalized_email = (email or "").strip().lower()
+    return f"{ip}:{normalized_email}" if normalized_email else ip
+
+
+def assert_rate_limit(key: str, action: str, limit: int, window_seconds: int) -> None:
+    now = time.monotonic()
+    bucket_key = (action, key)
+    recent = [t for t in RATE_LIMITS.get(bucket_key, []) if now - t < window_seconds]
+    if len(recent) >= limit:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many attempts. Please wait a few minutes and try again.",
+        )
+    recent.append(now)
+    RATE_LIMITS[bucket_key] = recent
+
+
+def check_runtime_configuration() -> None:
+    if settings.JWT_SECRET == JWT_PLACEHOLDER:
+        message = "JWT_SECRET is still using the placeholder value."
+        if is_production():
+            raise RuntimeError(f"{message} Set a strong unique secret before deploying.")
+        logger.warning("%s Generate a strong value for production.", message)
+
+    if is_production() and (not settings.SMTP_USER or not settings.SMTP_PASSWORD):
+        raise RuntimeError("SMTP_USER and SMTP_PASSWORD are required in production.")
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    logging.basicConfig(level=logging.INFO)
+    check_runtime_configuration()
     Base.metadata.create_all(bind=engine)
     run_startup_migrations()
     ensure_default_admin_user()
@@ -97,6 +140,21 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="PRIME API", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    if is_production():
+        response.headers.setdefault(
+            "Strict-Transport-Security",
+            "max-age=31536000; includeSubDomains",
+        )
+    return response
 
 _origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
 app.add_middleware(
@@ -146,12 +204,23 @@ def get_current_admin(
 
 
 @app.get("/health")
-def health():
-    return {"ok": True}
+def health(db: Session = Depends(get_db)):
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception:
+        logger.exception("health_database_check_failed")
+        raise HTTPException(status_code=503, detail="Database is unavailable")
+    smtp_configured = bool(settings.SMTP_SERVER and settings.SMTP_USER and settings.SMTP_PASSWORD)
+    return {"ok": True, "database": "ok", "smtp_configured": smtp_configured}
 
 
 @app.post("/auth/register", status_code=201)
-def register(payload: RegisterRequest, db: Session = Depends(get_db)):
+def register(
+    payload: RegisterRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    assert_rate_limit(client_key(request, payload.email), "register", 5, 15 * 60)
     user = db.query(User).filter(User.email == payload.email).first()
     if user is not None and user.is_email_verified:
         raise HTTPException(status_code=409, detail="Email already registered")
@@ -181,7 +250,8 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
         user.is_email_verified = True
         db.commit()
-        return {"message": "Account created and auto-verified (SMTP not configured)."}
+        logger.warning("SMTP not configured; auto-verifying %s in development", payload.email)
+        return {"message": "Account created and verified for local development."}
 
     token = generate_token()
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
@@ -195,22 +265,31 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
 
     verification_link = f"{settings.FRONTEND_URL.rstrip('/')}/verify-email?token={token}"
     if not send_verification_email(payload.email, verification_link):
+        logger.error("verification_email_failed email=%s", payload.email)
         raise HTTPException(
             status_code=500,
-            detail="Verification email could not be sent. Check SMTP configuration.",
+            detail=(
+                "We could not send the verification email right now. "
+                "Please try again later or contact support."
+            ),
         )
 
     return {"message": "Verification email sent. Please click the link in your inbox to verify your account."}
 
 
 @app.post("/auth/login", response_model=TokenResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
+def login(
+    payload: LoginRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    assert_rate_limit(client_key(request, payload.email), "login", 10, 15 * 60)
     user = db.query(User).filter(User.email == payload.email).first()
     if user is None:
         raise HTTPException(status_code=401, detail="This email is not registered")
     if not verify_password(payload.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Wrong password")
-    if not user.is_email_verified and user.email != "admin@admin.com":
+        raise HTTPException(status_code=401, detail="The password for this email is incorrect")
+    if not user.is_email_verified and user.email != settings.ADMIN_EMAIL:
         raise HTTPException(status_code=403, detail="Please verify your email before logging in")
     token = create_access_token(user.id)
     return TokenResponse(access_token=token)
@@ -259,9 +338,10 @@ def send_email(
         server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
         server.sendmail(sender_email, [email], message.as_string())
         server.quit()
+        logger.info("email_sent to=%s subject=%s", email, subject)
         return True
     except Exception as e:
-        print(f"Failed to send email to {email}: {e}")
+        logger.exception("email_send_failed to=%s subject=%s error=%s", email, subject, e)
         return False
 
 
@@ -294,8 +374,13 @@ def send_reset_email(email: str, reset_link: str) -> bool:
 
 
 @app.post("/auth/forgot-password", response_model=OTPResponse)
-def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+def forgot_password(
+    payload: ForgotPasswordRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
     """Request password reset via email link."""
+    assert_rate_limit(client_key(request, payload.email), "forgot_password", 3, 15 * 60)
     user = db.query(User).filter(User.email == payload.email).first()
     if not user:
         # Don't reveal if email exists or not (security best practice)
@@ -315,17 +400,26 @@ def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db
 
     reset_link = f"{settings.FRONTEND_URL.rstrip('/')}/forgot-password?token={token}"
     if not send_reset_email(payload.email, reset_link):
+        logger.error("password_reset_email_failed email=%s", payload.email)
         raise HTTPException(
             status_code=500,
-            detail="Password reset email could not be sent. Check SMTP configuration.",
+            detail=(
+                "We could not send the password reset email right now. "
+                "Please try again later or contact support."
+            ),
         )
 
     return OTPResponse(message="If email exists, a password reset link has been sent.")
 
 
 @app.post("/auth/reset-password", response_model=OTPResponse)
-def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+def reset_password(
+    payload: ResetPasswordRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
     """Reset password using a secure reset token."""
+    assert_rate_limit(client_key(request), "reset_password", 5, 15 * 60)
     token_record = db.query(PasswordResetOTP).filter(
         PasswordResetOTP.token == payload.token,
     ).first()
@@ -340,6 +434,8 @@ def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db))
 
     user = db.query(User).filter(User.email == token_record.email).first()
     if not user:
+        db.delete(token_record)
+        db.commit()
         raise HTTPException(status_code=404, detail="User not found")
 
     user.password_hash = hash_password(payload.new_password)
@@ -592,6 +688,160 @@ def admin_stats(
         appointments_last_7_days=appointments_last_7_days,
         appointments_by_document_type=appointments_by_document_type,
     )
+
+
+def as_utc_naive(value) -> datetime:
+    if value.tzinfo is not None:
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value
+
+
+def date_range_from_days(days: int) -> tuple[datetime, datetime]:
+    safe_days = max(1, min(days, 365))
+    end = datetime.now(timezone.utc).replace(tzinfo=None)
+    start = end - timedelta(days=safe_days - 1)
+    return (
+        start.replace(hour=0, minute=0, second=0, microsecond=0),
+        end.replace(hour=23, minute=59, second=59, microsecond=999999),
+    )
+
+
+def daily_buckets(start: datetime, end: datetime) -> list[dict[str, int | str]]:
+    days = (end.date() - start.date()).days + 1
+    return [
+        {"date": (start.date() + timedelta(days=i)).isoformat(), "count": 0}
+        for i in range(days)
+    ]
+
+
+@app.get("/admin/analytics")
+def admin_analytics(
+    days: int = Query(default=30, ge=1, le=365),
+    admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """Range-aware dashboard analytics from currently tracked app data."""
+    start, end = date_range_from_days(days)
+    previous_start = start - timedelta(days=days)
+    previous_end = start - timedelta(microseconds=1)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    users = db.query(User).all()
+    appointments = db.query(Appointment).all()
+    messages = db.query(ContactMessage).all()
+
+    def in_range(created_at, range_start: datetime, range_end: datetime) -> bool:
+        created = as_utc_naive(created_at)
+        return range_start <= created <= range_end
+
+    current_appointments = [
+        a for a in appointments if in_range(a.created_at, start, end)
+    ]
+    previous_appointments = [
+        a for a in appointments if in_range(a.created_at, previous_start, previous_end)
+    ]
+    current_users = [u for u in users if in_range(u.created_at, start, end)]
+    previous_users = [u for u in users if in_range(u.created_at, previous_start, previous_end)]
+
+    appt_buckets = daily_buckets(start, end)
+    user_buckets = daily_buckets(start, end)
+    appt_bucket_map = {b["date"]: b for b in appt_buckets}
+    user_bucket_map = {b["date"]: b for b in user_buckets}
+    for appt in current_appointments:
+        key = as_utc_naive(appt.created_at).date().isoformat()
+        appt_bucket_map[key]["count"] += 1
+    for user in current_users:
+        key = as_utc_naive(user.created_at).date().isoformat()
+        user_bucket_map[key]["count"] += 1
+
+    status_counts = {"pending": 0, "confirmed": 0, "completed": 0, "cancelled": 0}
+    document_counts: dict[str, int] = {}
+    location_counts: dict[str, int] = {}
+    cancellation_by_document: dict[str, int] = {}
+    cancellation_reasons: dict[str, int] = {}
+    weekday_counts: dict[str, int] = {}
+    pending_over_three_days = 0
+    for appt in current_appointments:
+        status = (appt.status or "pending").lower()
+        status_counts[status] = status_counts.get(status, 0) + 1
+        doc = appt.document_type or "Unknown"
+        document_counts[doc] = document_counts.get(doc, 0) + 1
+        location_counts[appt.location or "Unknown"] = location_counts.get(appt.location or "Unknown", 0) + 1
+        weekday = as_utc_naive(appt.created_at).strftime("%A")
+        weekday_counts[weekday] = weekday_counts.get(weekday, 0) + 1
+        if status == "cancelled":
+            cancellation_by_document[doc] = cancellation_by_document.get(doc, 0) + 1
+            reason = (appt.cancellation_reason or "No reason provided").strip()
+            cancellation_reasons[reason] = cancellation_reasons.get(reason, 0) + 1
+        if status == "pending" and as_utc_naive(appt.created_at) < now - timedelta(days=3):
+            pending_over_three_days += 1
+
+    total_appts = len(current_appointments)
+    completed = status_counts.get("completed", 0)
+    cancelled = status_counts.get("cancelled", 0)
+    total_users = len(users)
+    active_user_ids = {a.user_id for a in current_appointments}
+    active_users = len(active_user_ids)
+    booking_rate = round((active_users / total_users) * 100, 1) if total_users else 0
+    cancellation_rate = round((cancelled / total_appts) * 100, 1) if total_appts else 0
+    completion_rate = round((completed / total_appts) * 100, 1) if total_appts else 0
+
+    most_booked_document = max(document_counts.items(), key=lambda item: item[1], default=("No bookings", 0))
+    busiest_day = max(weekday_counts.items(), key=lambda item: item[1], default=("No activity", 0))
+    busiest_location = max(location_counts.items(), key=lambda item: item[1], default=("No locations", 0))
+
+    alerts: list[dict[str, str]] = []
+    previous_cancelled = sum(
+        1 for a in previous_appointments if (a.status or "").lower() == "cancelled"
+    )
+    if previous_cancelled and cancelled >= previous_cancelled * 2:
+        alerts.append({"level": "warning", "message": "Cancellations are at least double the previous period."})
+    if total_appts == 0:
+        alerts.append({"level": "info", "message": "No appointments were created in this date range."})
+    if previous_users and len(current_users) <= len(previous_users) * 0.5:
+        alerts.append({"level": "warning", "message": "User signups dropped by 50% or more versus the previous period."})
+    if pending_over_three_days:
+        alerts.append({"level": "warning", "message": f"{pending_over_three_days} pending appointment(s) are older than 3 days."})
+
+    return {
+        "range": {"days": days, "start": start.date().isoformat(), "end": end.date().isoformat()},
+        "last_updated": datetime.now(timezone.utc).isoformat(),
+        "totals": {
+            "users": total_users,
+            "new_users": len(current_users),
+            "appointments": total_appts,
+            "messages": len([m for m in messages if in_range(m.created_at, start, end)]),
+            "active_users": active_users,
+            "previous_appointments": len(previous_appointments),
+            "previous_users": len(previous_users),
+        },
+        "status_counts": status_counts,
+        "document_counts": document_counts,
+        "location_counts": location_counts,
+        "cancellation_by_document": cancellation_by_document,
+        "cancellation_reasons": cancellation_reasons,
+        "appointments_over_time": appt_buckets,
+        "users_over_time": user_buckets,
+        "kpis": {
+            "booking_rate": booking_rate,
+            "completion_rate": completion_rate,
+            "cancellation_rate": cancellation_rate,
+            "pending_over_three_days": pending_over_three_days,
+            "average_turnaround_hours": None,
+            "average_confirmation_hours": None,
+        },
+        "insights": {
+            "most_booked_document": {"label": most_booked_document[0], "count": most_booked_document[1]},
+            "busiest_day": {"label": busiest_day[0], "count": busiest_day[1]},
+            "busiest_location": {"label": busiest_location[0], "count": busiest_location[1]},
+            "top_cancellation_reason": max(
+                cancellation_reasons.items(),
+                key=lambda item: item[1],
+                default=("No cancellations", 0),
+            ),
+        },
+        "alerts": alerts,
+    }
 
 
 @app.post("/contact", response_model=ContactMessageResponse, status_code=201)

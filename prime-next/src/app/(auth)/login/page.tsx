@@ -4,7 +4,15 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { apiJson } from "@/lib/api";
 import { setToken } from "@/lib/auth";
-import { validateRegisterForm } from "@/lib/baldomarValidation";
+import {
+  validateEmailAddress,
+  validateGender,
+  validatePasswordBaldomar,
+  validatePersonName,
+  validateRegisterForm,
+} from "@/lib/baldomarValidation";
+
+type RegisterErrors = Partial<Record<"name" | "gender" | "email" | "password", string>>;
 
 export default function LoginPage() {
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -13,6 +21,7 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [loginEmailError, setLoginEmailError] = useState(false);
   const [loginPasswordError, setLoginPasswordError] = useState(false);
+  const [registerErrors, setRegisterErrors] = useState<RegisterErrors>({});
   const router = useRouter();
 
   const [loginEmail, setLoginEmail] = useState("");
@@ -22,6 +31,38 @@ export default function LoginPage() {
   const [regGender, setRegGender] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
+
+  function validateRegisterField(
+    field: keyof RegisterErrors,
+    value: string,
+  ): string | null {
+    if (field === "name") return validatePersonName(value, "Full name");
+    if (field === "gender") return value.trim() ? validateGender(value) : "Gender is required.";
+    if (field === "email") return validateEmailAddress(value);
+    return validatePasswordBaldomar(value);
+  }
+
+  function setRegisterField(
+    field: keyof RegisterErrors,
+    value: string,
+    setter: (next: string) => void,
+  ) {
+    setter(value);
+    setRegisterErrors((prev) => ({
+      ...prev,
+      [field]: validateRegisterField(field, value) ?? undefined,
+    }));
+    if (error && mode === "register") setError(null);
+  }
+
+  function validateAllRegisterFields(): RegisterErrors {
+    return {
+      name: validateRegisterField("name", regName) ?? undefined,
+      gender: validateRegisterField("gender", regGender) ?? undefined,
+      email: validateRegisterField("email", regEmail) ?? undefined,
+      password: validateRegisterField("password", regPassword) ?? undefined,
+    };
+  }
 
   const styles = useMemo(() => {
     const isLogin = mode === "login";
@@ -86,6 +127,8 @@ export default function LoginPage() {
       password: regPassword,
       gender: regGender,
     });
+    const fieldErrors = validateAllRegisterFields();
+    setRegisterErrors(fieldErrors);
     if (regErr) {
       setError(regErr);
       return;
@@ -106,7 +149,16 @@ export default function LoginPage() {
       );
       setMode("login");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Register failed");
+      const message = err instanceof Error ? err.message : "Register failed";
+      setError(message);
+      const normalized = message.toLowerCase();
+      if (normalized.includes("email")) {
+        setRegisterErrors((prev) => ({ ...prev, email: message }));
+      } else if (normalized.includes("password")) {
+        setRegisterErrors((prev) => ({ ...prev, password: message }));
+      } else if (normalized.includes("name")) {
+        setRegisterErrors((prev) => ({ ...prev, name: message }));
+      }
     } finally {
       setBusy(false);
     }
@@ -274,13 +326,26 @@ export default function LoginPage() {
                     id="reg-name"
                     type="text"
                     name="User"
-                    className="input-field"
+                    className={`input-field ${registerErrors.name ? "input-field--error" : ""}`}
                     autoComplete="name"
                     required
                     value={regName}
-                    onChange={(e) => setRegName(e.target.value)}
+                    onChange={(e) => setRegisterField("name", e.target.value, setRegName)}
+                    onBlur={() =>
+                      setRegisterErrors((prev) => ({
+                        ...prev,
+                        name: validateRegisterField("name", regName) ?? undefined,
+                      }))
+                    }
+                    aria-invalid={Boolean(registerErrors.name)}
+                    aria-describedby={registerErrors.name ? "reg-name-error" : undefined}
                   />
                 </div>
+                {registerErrors.name ? (
+                  <div className="field-error" id="reg-name-error">
+                    {registerErrors.name}
+                  </div>
+                ) : null}
               </div>
               <div className="input-box input-box--stacked input-box--stacked-select">
                 <label className="field-label field-label--above" htmlFor="reg-gender">
@@ -289,11 +354,19 @@ export default function LoginPage() {
                 <select
                   id="reg-gender"
                   name="gender"
-                  className="input-field"
+                  className={`input-field ${registerErrors.gender ? "input-field--error" : ""}`}
                   required
                   value={regGender}
-                  onChange={(e) => setRegGender(e.target.value)}
+                  onChange={(e) => setRegisterField("gender", e.target.value, setRegGender)}
+                  onBlur={() =>
+                    setRegisterErrors((prev) => ({
+                      ...prev,
+                      gender: validateRegisterField("gender", regGender) ?? undefined,
+                    }))
+                  }
                   aria-label="Gender"
+                  aria-invalid={Boolean(registerErrors.gender)}
+                  aria-describedby={registerErrors.gender ? "reg-gender-error" : undefined}
                 >
                   <option value="" disabled>
                     {"\u00a0"}
@@ -301,6 +374,11 @@ export default function LoginPage() {
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
                 </select>
+                {registerErrors.gender ? (
+                  <div className="field-error" id="reg-gender-error">
+                    {registerErrors.gender}
+                  </div>
+                ) : null}
               </div>
             </div>
             <div className="input-box input-box--stacked">
@@ -313,13 +391,26 @@ export default function LoginPage() {
                   id="reg-email"
                   type="email"
                   name="email"
-                  className="input-field"
+                  className={`input-field ${registerErrors.email ? "input-field--error" : ""}`}
                   autoComplete="email"
                   required
                   value={regEmail}
-                  onChange={(e) => setRegEmail(e.target.value)}
+                  onChange={(e) => setRegisterField("email", e.target.value, setRegEmail)}
+                  onBlur={() =>
+                    setRegisterErrors((prev) => ({
+                      ...prev,
+                      email: validateRegisterField("email", regEmail) ?? undefined,
+                    }))
+                  }
+                  aria-invalid={Boolean(registerErrors.email)}
+                  aria-describedby={registerErrors.email ? "reg-email-error" : undefined}
                 />
               </div>
+              {registerErrors.email ? (
+                <div className="field-error" id="reg-email-error">
+                  {registerErrors.email}
+                </div>
+              ) : null}
             </div>
             <div className="input-box input-box--stacked">
               <label className="field-label field-label--above" htmlFor="reg-password">
@@ -331,14 +422,28 @@ export default function LoginPage() {
                   id="reg-password"
                   type="password"
                   name="password"
-                  className="input-field"
+                  className={`input-field ${registerErrors.password ? "input-field--error" : ""}`}
                   autoComplete="new-password"
                   required
-                  aria-describedby="reg-password-hint"
+                  aria-describedby={
+                    registerErrors.password ? "reg-password-error reg-password-hint" : "reg-password-hint"
+                  }
                   value={regPassword}
-                  onChange={(e) => setRegPassword(e.target.value)}
+                  onChange={(e) => setRegisterField("password", e.target.value, setRegPassword)}
+                  onBlur={() =>
+                    setRegisterErrors((prev) => ({
+                      ...prev,
+                      password: validateRegisterField("password", regPassword) ?? undefined,
+                    }))
+                  }
+                  aria-invalid={Boolean(registerErrors.password)}
                 />
               </div>
+              {registerErrors.password ? (
+                <div className="field-error" id="reg-password-error">
+                  {registerErrors.password}
+                </div>
+              ) : null}
               <p className="field-hint" id="reg-password-hint">
                 At least 8 characters, max 72 bytes. Include at least one number and one special
                 character (!@#$%^&amp;* etc.).

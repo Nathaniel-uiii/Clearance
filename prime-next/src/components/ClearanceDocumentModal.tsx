@@ -70,7 +70,8 @@ export function ClearanceDocumentModal({
   const [bookingOrNo] = useState(() => Math.floor(10000 + Math.random() * 90000));
 
   useEffect(() => {
-    setMounted(true);
+    const id = window.requestAnimationFrame(() => setMounted(true));
+    return () => window.cancelAnimationFrame(id);
   }, []);
 
   const isView = mode === "view" && viewerAppointment != null;
