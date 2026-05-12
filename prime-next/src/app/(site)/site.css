@@ -616,7 +616,6 @@ form {
 /* Services Section Styles */
 .services-section {
     padding: 30px 0;
-    background: linear-gradient(135deg, rgba(26, 26, 26, 0.9), rgba(45, 45, 45, 0.9));
     min-height: 50vh;
     display: flex;
     align-items: center;
@@ -628,6 +627,8 @@ form {
     margin: 0 auto;
     padding: 0 15px;
     width: 100%;
+    position: relative;
+    z-index: 1;
 }
 
 .services-title {
@@ -680,6 +681,20 @@ form {
     transform: translateY(-5px);
     box-shadow: 0 8px 20px rgba(76, 175, 80, 0.2);
     border-color: rgba(76, 175, 80, 0.3);
+}
+
+button.service-card {
+    margin: 0;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+    appearance: none;
+    text-align: center;
+}
+
+.service-card:focus-visible {
+    outline: 2px solid #4caf50;
+    outline-offset: 3px;
 }
 
 .service-icon {
@@ -779,7 +794,6 @@ form {
 /* Book section adjustments */
 .book-section {
     padding: 0;
-    background: linear-gradient(135deg, rgba(26, 26, 26, 0.93), rgba(45, 45, 45, 0.93));
     min-height: 0;
     display: flex;
     flex-direction: column;
@@ -800,7 +814,7 @@ form {
     gap: clamp(18px, 2.5vw, 32px);
     box-sizing: border-box;
     position: relative;
-    z-index: 0;
+    z-index: 1;
 }
 
 .appointment-form {
@@ -1330,78 +1344,6 @@ form {
     font-weight: 700;
     letter-spacing: 0.06em;
 }
-.appointment-filter-tabs {
-    display: flex;
-    gap: 6px;
-    flex-wrap: nowrap;
-    justify-content: center;
-    margin-bottom: 10px;
-}
-
-.appointment-filter-tabs button {
-    padding: 6px 14px;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 6px;
-    background: rgba(0, 0, 0, 0.4);
-    color: #e0e0e0;
-    cursor: pointer;
-    font-size: 0.82rem;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    transition: all 0.2s;
-    white-space: nowrap;
-}
-
-.appointment-filter-tabs button:hover {
-    background: rgba(0, 0, 0, 0.55);
-    border-color: rgba(255, 255, 255, 0.5);
-    color: #fff;
-}
-
-.appointment-filter-tabs button.active-all {
-    background: #7c3aed;
-    border-color: #a78bfa;
-    color: #fff;
-    font-weight: 700;
-}
-
-.appointment-filter-tabs button.active-pending {
-    background: #ca8a04;
-    border-color: #eab308;
-    color: #fff;
-    font-weight: 700;
-}
-
-.appointment-filter-tabs button.active-completed {
-    background: #16a34a;
-    border-color: #22c55e;
-    color: #fff;
-    font-weight: 700;
-}
-
-.appointment-filter-tabs button.active-cancelled {
-    background: #dc2626;
-    border-color: #ef4444;
-    color: #fff;
-    font-weight: 700;
-}
-
-.appointment-filter-tabs button strong {
-    font-size: 0.75rem;
-    background: rgba(255, 255, 255, 0.12);
-    padding: 1px 6px;
-    border-radius: 10px;
-    min-width: 18px;
-    text-align: center;
-}
-
-.appointment-filter-tabs button.active-all strong,
-.appointment-filter-tabs button.active-pending strong,
-.appointment-filter-tabs button.active-completed strong,
-.appointment-filter-tabs button.active-cancelled strong {
-    background: rgba(255, 255, 255, 0.2);
-}
 
 .status-pending {
     background: rgba(255, 193, 7, 0.35);
@@ -1516,9 +1458,9 @@ form {
 
 .appointment-filter-tabs {
     display: flex;
-    gap: 6px;
+    gap: 8px;
     flex-wrap: nowrap;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
     margin: 0 0 8px;
     padding: 8px 8px 6px;
@@ -1526,10 +1468,12 @@ form {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.08);
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
 }
 
 .appointment-filter-tabs button {
-    padding: 6px 10px;
+    padding: 6px 12px;
     border: 1px solid rgba(255, 255, 255, 0.16);
     border-radius: 8px;
     background: rgba(15, 23, 42, 0.9);
@@ -1539,11 +1483,10 @@ form {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
+    gap: 6px;
     transition: all 0.2s;
     white-space: nowrap;
-    min-width: 0;
-    flex: 1;
+    flex: 0 0 auto;
 }
 
 .appointment-filter-tabs button:hover {
@@ -1588,6 +1531,7 @@ form {
     min-width: 18px;
     text-align: center;
     color: #374151;
+    flex-shrink: 0;
 }
 
 .appointment-filter-tabs button.active-all strong,
@@ -1667,23 +1611,24 @@ section#book .appointment-form .form-box,
     background-color: rgba(0, 0, 0, 0.7);
 }
 
-/* Home Section Styles */
-.home {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 7%;
-    position: relative;
-    isolation: isolate;
+/* Home hero background: shared with Services, Book, Contact */
+.home,
+.services-section,
+.book-section,
+.contact {
     background-color: #f1f5f9;
     background-image: url("/images/6a82b4f63a7a4ca7a4bf2f079f9670c0.jpg");
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
+    position: relative;
+    isolation: isolate;
 }
 
-.home::before {
+.home::before,
+.services-section::before,
+.book-section::before,
+.contact::before {
     content: "";
     position: absolute;
     inset: 0;
@@ -1694,6 +1639,15 @@ section#book .appointment-form .form-box,
         rgba(255, 255, 255, 0.88),
         rgba(241, 245, 249, 0.72)
     );
+}
+
+/* Home Section Styles */
+.home {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 7%;
 }
 
 .home .content {
@@ -1870,7 +1824,6 @@ section#book .appointment-form .form-box,
     min-height: 60vh;
     color: #222;
     padding: 30px 0;
-    background: linear-gradient(135deg, rgba(26, 26, 26, 0.93), rgba(45, 45, 45, 0.93));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1881,6 +1834,8 @@ section#book .appointment-form .form-box,
     margin: 0 auto;
     padding: 15px;
     width: 100%;
+    position: relative;
+    z-index: 1;
 }
 
 .contact-wrapper {
@@ -2372,14 +2327,11 @@ body {
     border-bottom: 2px solid #ffffff;
 }
 
-section:not(.home) {
+section:not(.home):not(.services-section):not(.book-section):not(.contact) {
     background: #ffffff;
 }
 
-.services-section,
-.book-section,
-.team-section,
-.contact {
+.team-section {
     background: #ffffff;
 }
 
@@ -2395,6 +2347,11 @@ section:not(.home) {
     border: 3px solid #94a3b8;
     box-shadow: none;
     backdrop-filter: none;
+}
+
+.service-card:focus-visible {
+    outline: 2px solid #0b3d91;
+    outline-offset: 3px;
 }
 
 .input-field,

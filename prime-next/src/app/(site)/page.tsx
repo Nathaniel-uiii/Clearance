@@ -305,6 +305,15 @@ export default function SiteHomePage() {
     }
   }, []);
 
+  function goToAppointmentForDocument(documentTypeValue: string) {
+    updateAppointmentField("documentType", documentTypeValue, setDocumentType);
+    handleNavigation("book");
+    requestAnimationFrame(() => {
+      document.getElementById("book")?.scrollIntoView({ behavior: "smooth" });
+      document.getElementById("documentType")?.focus();
+    });
+  }
+
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1) || "home";
@@ -783,72 +792,79 @@ export default function SiteHomePage() {
 
       <section id="services" className={`services-section ${currentSection === "services" ? "active" : ""}`}>
         <div className="services-container">
-          <h2 className="services-title">Our Services</h2>
+          <h2 className="services-title">Types of clearances</h2>
           <div className="services-grid">
-            <div className="service-card">
+            <button
+              type="button"
+              className="service-card"
+              onClick={() => goToAppointmentForDocument("Barangay Clearance")}
+              aria-label="Book appointment for Barangay Clearance"
+            >
               <div className="service-icon">
-                <i className="bx bx-calendar-check" />
+                <i className="bx bx-id-card" aria-hidden />
               </div>
               <div className="service-content">
-                <h3>Appointment Scheduling</h3>
+                <h3>Barangay Clearance</h3>
                 <p>
-                  Easy and convenient online appointment booking system with
-                  automated reminders.
+                  General-purpose community certificate for employment, school,
+                  government transactions, and other official requirements.
                 </p>
               </div>
-            </div>
+            </button>
 
-            <div className="service-card">
+            <button
+              type="button"
+              className="service-card"
+              onClick={() => goToAppointmentForDocument("Business Permit")}
+              aria-label="Book appointment for Business permit"
+            >
               <div className="service-icon">
-                <i className="bx bx-user-voice" />
+                <i className="bx bx-store" aria-hidden />
               </div>
               <div className="service-content">
-                <h3>Customer Support</h3>
+                <h3>Business permit</h3>
                 <p>
-                  24/7 customer support to assist with any questions or concerns
-                  about your appointments.
+                  Local authorization to operate a business within the barangay,
+                  aligned with municipal regulations and zoning.
                 </p>
               </div>
-            </div>
+            </button>
 
-            <div className="service-card">
+            <button
+              type="button"
+              className="service-card"
+              onClick={() => goToAppointmentForDocument("Proof of Residency")}
+              aria-label="Book appointment for Proof of residency"
+            >
               <div className="service-icon">
-                <i className="bx bx-file" />
+                <i className="bx bx-home" aria-hidden />
               </div>
               <div className="service-content">
-                <h3>Document Management</h3>
+                <h3>Proof of residency</h3>
                 <p>
-                  Secure storage and management of all your important documents
-                  and records.
+                  Certification of your current address, often required for
+                  utilities, scholarships, and other residency-based applications.
                 </p>
               </div>
-            </div>
+            </button>
 
-            <div className="service-card">
+            <button
+              type="button"
+              className="service-card"
+              onClick={() => goToAppointmentForDocument("Certificate of Indigency")}
+              aria-label="Book appointment for Certificate of indigency"
+            >
               <div className="service-icon">
-                <i className="bx bx-line-chart" />
+                <i className="bx bx-file-blank" aria-hidden />
               </div>
               <div className="service-content">
-                <h3>Analytics & Reports</h3>
+                <h3>Certificate of indigency</h3>
                 <p>
-                  Detailed analytics and reports to help you track and manage
-                  your appointments.
+                  Document for residents who need financial assistance or
+                  fee waivers based on economic status verified by the barangay.
                 </p>
               </div>
-            </div>
-
-            <div className="service-card">
-              <div className="service-icon">
-                <i className="bx bx-lock-alt" />
-              </div>
-              <div className="service-content">
-                <h3>Secure Data</h3>
-                <p>
-                  Your personal information and appointment details are kept
-                  secure with our advanced encryption.
-                </p>
-              </div>
-            </div>
+            </button>
           </div>
         </div>
       </section>
