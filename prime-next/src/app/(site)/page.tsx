@@ -369,6 +369,38 @@ export default function SiteHomePage() {
     setApptError(null);
   }
 
+  function locationFromAddress(addressValue: string): string {
+    return addressValue ? `${addressValue}, Cabadbaran City` : "";
+  }
+
+  function addressFromLocation(locationValue: string): string {
+    return locationValue.replace(/,\s*Cabadbaran City$/i, "");
+  }
+
+  function updateAddressAndLocation(addressValue: string) {
+    const nextLocation = locationFromAddress(addressValue);
+    setAddress(addressValue);
+    setLocation(nextLocation);
+    setAppointmentErrors((prev) => ({
+      ...prev,
+      address: validateAppointmentField("address", addressValue) ?? undefined,
+      location: validateAppointmentField("location", nextLocation) ?? undefined,
+    }));
+    setApptError(null);
+  }
+
+  function updateLocationAndAddress(locationValue: string) {
+    const nextAddress = locationValue ? addressFromLocation(locationValue) : "";
+    setLocation(locationValue);
+    setAddress(nextAddress);
+    setAppointmentErrors((prev) => ({
+      ...prev,
+      address: validateAppointmentField("address", nextAddress) ?? undefined,
+      location: validateAppointmentField("location", locationValue) ?? undefined,
+    }));
+    setApptError(null);
+  }
+
   function updateDocumentTextField<T extends DocumentType>(
     type: T,
     field: keyof DocumentFormDataMap[T],
@@ -1317,9 +1349,7 @@ export default function SiteHomePage() {
                       name="address"
                       required
                       value={address}
-                      onChange={(e) =>
-                        updateAppointmentField("address", e.target.value, setAddress)
-                      }
+                      onChange={(e) => updateAddressAndLocation(e.target.value)}
                       onBlur={() =>
                         setAppointmentErrors((prev) => ({
                           ...prev,
@@ -1423,9 +1453,7 @@ export default function SiteHomePage() {
                       name="location"
                       required
                       value={location}
-                      onChange={(e) =>
-                        updateAppointmentField("location", e.target.value, setLocation)
-                      }
+                      onChange={(e) => updateLocationAndAddress(e.target.value)}
                       onBlur={() =>
                         setAppointmentErrors((prev) => ({
                           ...prev,
@@ -1608,7 +1636,7 @@ export default function SiteHomePage() {
                   ["all", "All", appointments.length],
                   ["pending", "Pending", pendingAppointments],
                   ["completed", "Done", completedAppointments],
-                  ["cancelled", "Cancelled", cancelledAppointments],
+                  ["cancelled", "Cancel", cancelledAppointments],
                 ].map(([key, label, count]) => (
                   <button
                     key={key}

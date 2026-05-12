@@ -959,28 +959,40 @@ button.service-card {
 .form-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 18px;
+    gap: 14px 16px;
 }
 
 .document-form-panel {
-    margin-top: 18px;
-    padding: 14px;
+    margin-top: 12px;
+    padding: 10px 14px 12px;
     border-radius: 8px;
-    border: 1px solid rgba(96, 165, 250, 0.35);
-    background: rgba(15, 23, 42, 0.42);
+    border: 1px solid #bfdbfe;
+    background: #ffffff;
+    box-shadow: 0 10px 24px rgba(11, 61, 145, 0.12);
     animation: documentFormIn 0.24s ease-out;
+    position: relative;
+    overflow: hidden;
+}
+
+.document-form-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 4px;
+    background: linear-gradient(90deg, #0b3d91, #2563eb, #60a5fa);
 }
 
 .document-form-panel--empty {
-    background: rgba(255, 255, 255, 0.08);
+    background: #f8fbff;
     border-style: dashed;
-    color: rgba(255, 255, 255, 0.82);
+    color: #1e3a8a;
     text-align: center;
+    box-shadow: none;
 }
 
 .document-form-panel--empty p {
     margin: 0;
-    font-size: 0.9rem;
+    font-size: 0.82rem;
 }
 
 .document-form-panel__header {
@@ -988,38 +1000,97 @@ button.service-card {
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    margin-bottom: 12px;
-    color: #ffffff;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    color: #0f172a;
+    border-bottom: 1px solid #dbeafe;
+    position: relative;
+    z-index: 1;
 }
 
 .document-form-panel__header span {
-    font-size: 0.74rem;
+    font-size: 0.68rem;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: #bfdbfe;
+    color: #1d4ed8;
+    font-weight: 800;
 }
 
 .document-form-panel__header strong {
-    color: #ffffff;
-    font-size: 0.92rem;
+    color: #0b3d91;
+    font-size: 0.78rem;
     text-align: right;
+    padding: 4px 8px;
+    border-radius: 8px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
 }
 
 .document-form-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    position: relative;
+    z-index: 1;
+}
+
+.document-form-panel .input-box {
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: #f8fbff;
+    border: 1px solid #e0ecff;
+}
+
+.document-form-panel .input-box label {
+    color: #0b3d91;
+    font-weight: 700;
+    margin-bottom: 4px;
+    font-size: 0.78em;
+    line-height: 1.15;
+}
+
+#book .document-form-panel .input-field,
+.appointment-form .document-form-panel .input-field {
+    border-color: #bfdbfe;
+    background: #ffffff;
+    color: #0f172a;
+    min-height: 36px;
+    height: 36px;
+    padding: 7px 10px;
+    font-size: 0.84em;
+}
+
+#book .document-form-panel .input-field:focus,
+.appointment-form .document-form-panel .input-field:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+}
+
+#book .document-form-panel .input-field::placeholder,
+.appointment-form .document-form-panel .input-field::placeholder {
+    color: #64748b;
+}
+
+#book .document-form-panel select.input-field,
+.appointment-form .document-form-panel select.input-field {
+    color: #0f172a;
 }
 
 .file-field {
     cursor: pointer;
+    min-height: 34px;
+    height: 34px;
+    padding: 5px 8px !important;
+    font-size: 0.78em !important;
 }
 
 .file-preview {
-    margin: 6px 0 0;
-    color: rgba(255, 255, 255, 0.78);
-    font-size: 0.76rem;
-    line-height: 1.35;
+    margin: 5px 0 0;
+    color: #475569;
+    font-size: 0.68rem;
+    line-height: 1.2;
+    padding-left: 8px;
+    border-left: 2px solid #93c5fd;
 }
 
 @keyframes documentFormIn {
@@ -1039,6 +1110,10 @@ button.service-card {
 
 @media (max-width: 1100px) {
     .form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .document-form-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
@@ -1061,7 +1136,7 @@ button.service-card {
 
 @media (max-width: 520px) {
     .appointment-filter-tabs {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
@@ -1538,36 +1613,36 @@ button.service-card {
 }
 
 .appointment-filter-tabs {
-    display: flex;
-    gap: 8px;
-    flex-wrap: nowrap;
-    justify-content: flex-start;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+    justify-content: stretch;
     align-items: center;
     margin: 0 0 8px;
-    padding: 8px 8px 6px;
-    border-radius: 10px;
+    padding: 6px;
+    border-radius: 8px;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-gutter: stable;
+    overflow: hidden;
 }
 
 .appointment-filter-tabs button {
-    padding: 6px 12px;
+    width: 100%;
+    min-width: 0;
+    padding: 5px 4px;
     border: 1px solid rgba(255, 255, 255, 0.16);
-    border-radius: 8px;
+    border-radius: 7px;
     background: rgba(15, 23, 42, 0.9);
     color: #e5e7eb;
     cursor: pointer;
-    font-size: 0.78rem;
+    font-size: 0.68rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 3px;
     transition: all 0.2s;
     white-space: nowrap;
-    flex: 0 0 auto;
+    line-height: 1.1;
 }
 
 .appointment-filter-tabs button:hover {
@@ -1605,11 +1680,11 @@ button.service-card {
 }
 
 .appointment-filter-tabs button strong {
-    font-size: 0.75rem;
+    font-size: 0.64rem;
     background: #e5e7eb;
-    padding: 1px 6px;
-    border-radius: 10px;
-    min-width: 18px;
+    padding: 1px 4px;
+    border-radius: 999px;
+    min-width: 16px;
     text-align: center;
     color: #374151;
     flex-shrink: 0;
