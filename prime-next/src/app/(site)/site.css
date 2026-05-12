@@ -962,6 +962,77 @@ button.service-card {
     gap: 18px;
 }
 
+.document-form-panel {
+    margin-top: 18px;
+    padding: 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(96, 165, 250, 0.35);
+    background: rgba(15, 23, 42, 0.42);
+    animation: documentFormIn 0.24s ease-out;
+}
+
+.document-form-panel--empty {
+    background: rgba(255, 255, 255, 0.08);
+    border-style: dashed;
+    color: rgba(255, 255, 255, 0.82);
+    text-align: center;
+}
+
+.document-form-panel--empty p {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.document-form-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+    color: #ffffff;
+}
+
+.document-form-panel__header span {
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #bfdbfe;
+}
+
+.document-form-panel__header strong {
+    color: #ffffff;
+    font-size: 0.92rem;
+    text-align: right;
+}
+
+.document-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.file-field {
+    cursor: pointer;
+}
+
+.file-preview {
+    margin: 6px 0 0;
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 0.76rem;
+    line-height: 1.35;
+}
+
+@keyframes documentFormIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 .input-box {
     margin-bottom: 0;
 }
@@ -973,8 +1044,18 @@ button.service-card {
 }
 
 @media (max-width: 720px) {
-    .form-grid {
+    .form-grid,
+    .document-form-grid {
         grid-template-columns: 1fr;
+    }
+
+    .document-form-panel__header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .document-form-panel__header strong {
+        text-align: left;
     }
 }
 
@@ -2249,6 +2330,19 @@ section#book .appointment-form .form-box,
     text-align: left;
     font-size: 0.9375rem;
     color: #222;
+}
+
+.clearance-document-preview__details {
+    margin-top: 18px;
+    padding: 12px 14px;
+    border: 1px solid #dbeafe;
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.clearance-document-preview__details p {
+    margin: 4px 0;
+    font-size: 0.85rem;
 }
 
 .clearance-document-preview__signature-block {

@@ -23,6 +23,16 @@ import {
   validateRequired,
 } from "@/lib/baldomarValidation";
 import { ClearanceDocumentModal } from "@/components/ClearanceDocumentModal";
+import {
+  BarangayClearanceForm,
+  BusinessPermitForm,
+  CertificateOfIndigencyForm,
+  DOCUMENT_TYPES,
+  DocumentFormDataMap,
+  DocumentFormErrors,
+  DocumentType,
+  ProofOfResidencyForm,
+} from "@/components/DocumentRequestForms";
 
 const MONTHLY_APPOINTMENT_LIMIT = 5;
 
@@ -34,6 +44,7 @@ export type Appointment = {
   day: string;
   month: string;
   location: string;
+  document_type: string;
   status: string;
   cancellation_reason: string | null;
   created_at: string;
@@ -48,9 +59,134 @@ type AppointmentErrors = Partial<
   Record<"fullName" | "age" | "address" | "appointmentDate" | "location" | "documentType", string>
 >;
 
+type DocumentDrafts = {
+  [K in DocumentType]: DocumentFormDataMap[K];
+};
+
+type DocumentErrors = {
+  [K in DocumentType]: DocumentFormErrors<K>;
+};
+
 type ContactErrors = Partial<Record<"fullname" | "email" | "phone" | "subject" | "message", string>>;
 
 type AppointmentFilter = "all" | "pending" | "completed" | "cancelled";
+
+function createInitialDocumentDrafts(): DocumentDrafts {
+  return {
+    "Barangay Clearance": {
+      purpose: "",
+      validId: null,
+    },
+    "Certificate of Indigency": {
+      monthlyIncome: "",
+      purpose: "",
+      supportingDocument: null,
+    },
+    "Business Permit": {
+      businessName: "",
+      businessType: "",
+      ownerName: "",
+      businessAddress: "",
+      permitType: "",
+      businessDocument: null,
+    },
+    "Proof of Residency": {
+      lengthOfResidency: "",
+      reasonForRequest: "",
+      validId: null,
+    },
+  };
+}
+
+function createInitialDocumentErrors(): DocumentErrors {
+  return {
+    "Barangay Clearance": {},
+    "Certificate of Indigency": {},
+    "Business Permit": {},
+    "Proof of Residency": {},
+  };
+}
+
+function isDocumentType(value: string): value is DocumentType {
+  return DOCUMENT_TYPES.includes(value as DocumentType);
+}
+
+function validateUpload(file: File | null, label: string): string | null {
+  if (!file) return `${label} is required.`;
+  const allowedTypes = ["application/pdf", "image/jpeg", "image/png"];
+  const allowedExtensions = [".pdf", ".jpg", ".jpeg", ".png"];
+  const lowerName = file.name.toLowerCase();
+  const hasAllowedExtension = allowedExtensions.some((ext) => lowerName.endsWith(ext));
+  if (!allowedTypes.includes(file.type) && !hasAllowedExtension) {
+    return "Upload must be a PDF, JPG, JPEG, or PNG file.";
+  }
+  if (file.size > 5 * 1024 * 1024) return "Upload must be 5 MB or smaller.";
+  return null;
+}
+
+function validateDocumentField<T extends DocumentType>(
+  documentType: T,
+  field: keyof DocumentFormDataMap[T],
+  data: DocumentFormDataMap[T],
+): string | null {
+  const value: unknown = data[field];
+  const label = String(field)
+    .replace(/([A-Z])/g, " $1")
+    .replace(/^./, (char) => char.toUpperCase());
+
+  if (value instanceof File || value === null) return validateUpload(value, label);
+
+  const textValue = String(value).trim();
+  if (!textValue) return `${label} is required.`;
+  if (field === "monthlyIncome") {
+    const income = Number(textValue);
+    if (!Number.isFinite(income) || income < 0) return "Monthly income must be a valid amount.";
+  }
+  if (documentType === "Business Permit" && field === "ownerName") {
+    return validatePersonName(textValue, "Owner name");
+  }
+  return null;
+}
+
+function validateDocumentForm<T extends DocumentType>(
+  documentType: T,
+  data: DocumentFormDataMap[T],
+): DocumentFormErrors<T> {
+  const errors: DocumentFormErrors<T> = {};
+  for (const field of Object.keys(data) as Array<keyof DocumentFormDataMap[T]>) {
+    const error = validateDocumentField(documentType, field, data);
+    if (error) errors[field] = error;
+  }
+  return errors;
+}
+
+function hasErrors(errors: Record<string, string | undefined>): boolean {
+  return Object.values(errors).some(Boolean);
+}
+
+function buildDocumentPayload<T extends DocumentType>(documentType: T, data: DocumentFormDataMap[T]) {
+  const details: Record<string, string> = {};
+  const attachments: Array<{ field: string; name: string; size: number; type: string }> = [];
+
+  for (const [key, value] of Object.entries(data)) {
+    if (value instanceof File) {
+      attachments.push({
+        field: key,
+        name: value.name,
+        size: value.size,
+        type: value.type || "application/octet-stream",
+      });
+    } else if (value != null) {
+      details[key] = String(value).trim();
+    }
+  }
+
+  return {
+    document_type: documentType,
+    document_details: details,
+    attachments,
+  };
+}
 
 function normalizeAppointmentRow(raw: Record<string, unknown>): Appointment | null {
   const id = Number(raw.id);
@@ -68,6 +204,7 @@ function normalizeAppointmentRow(raw: Record<string, unknown>): Appointment | nu
     day: String(raw.day ?? ""),
     month: String(raw.month ?? ""),
     location: String(raw.location ?? ""),
+    document_type: String(raw.document_type ?? "Barangay Clearance"),
     status: String(raw.status ?? "pending"),
     cancellation_reason: raw.cancellation_reason ? String(raw.cancellation_reason) : null,
     created_at: createdAt,
@@ -135,6 +272,12 @@ export default function SiteHomePage() {
   const [appointmentDate, setAppointmentDate] = useState("");
   const [location, setLocation] = useState("");
   const [documentType, setDocumentType] = useState("");
+  const [documentDrafts, setDocumentDrafts] = useState<DocumentDrafts>(() =>
+    createInitialDocumentDrafts(),
+  );
+  const [documentErrors, setDocumentErrors] = useState<DocumentErrors>(() =>
+    createInitialDocumentErrors(),
+  );
   const [clearanceModal, setClearanceModal] = useState<ClearanceModalState>({ open: false });
   const [contactFullName, setContactFullName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
@@ -149,11 +292,43 @@ export default function SiteHomePage() {
   /** True only after user confirms the sample clearance on this booking attempt (not persisted). */
   const clearanceBookingDocAckRef = useRef(false);
 
+  const selectedDocumentType = isDocumentType(documentType) ? documentType : null;
+
+  const currentDocumentErrors = useMemo(() => {
+    if (!selectedDocumentType) return {};
+    return documentErrors[selectedDocumentType];
+  }, [documentErrors, selectedDocumentType]);
+
+  const currentDocumentIsComplete = useMemo(() => {
+    if (!selectedDocumentType) return false;
+    return !hasErrors(validateDocumentForm(selectedDocumentType, documentDrafts[selectedDocumentType]));
+  }, [documentDrafts, selectedDocumentType]);
+
   const bookingProgress = useMemo(() => {
     const fields = [fullName, age, address, appointmentDate, location, documentType];
-    const filled = fields.filter((f) => f.trim().length > 0).length;
-    return Math.round((filled / fields.length) * 100);
-  }, [fullName, age, address, appointmentDate, location, documentType]);
+    let filled = fields.filter((f) => f.trim().length > 0).length;
+    let total = fields.length;
+
+    if (selectedDocumentType) {
+      const documentValues = Object.values(documentDrafts[selectedDocumentType]);
+      total += documentValues.length;
+      filled += documentValues.filter((value) => {
+        if (value instanceof File) return true;
+        return String(value ?? "").trim().length > 0;
+      }).length;
+    }
+
+    return Math.round((filled / total) * 100);
+  }, [
+    fullName,
+    age,
+    address,
+    appointmentDate,
+    location,
+    documentType,
+    documentDrafts,
+    selectedDocumentType,
+  ]);
 
   function validateAppointmentField(
     field: keyof AppointmentErrors,
@@ -192,6 +367,58 @@ export default function SiteHomePage() {
       [field]: validateAppointmentField(field, value) ?? undefined,
     }));
     setApptError(null);
+  }
+
+  function updateDocumentTextField<T extends DocumentType>(
+    type: T,
+    field: keyof DocumentFormDataMap[T],
+    value: string,
+  ) {
+    setDocumentDrafts((prev) => {
+      const nextData = { ...prev[type], [field]: value } as DocumentFormDataMap[T];
+      setDocumentErrors((errors) => ({
+        ...errors,
+        [type]: {
+          ...errors[type],
+          [field]: validateDocumentField(type, field, nextData) ?? undefined,
+        },
+      }));
+      return { ...prev, [type]: nextData };
+    });
+    setApptError(null);
+  }
+
+  function updateDocumentFileField<T extends DocumentType>(
+    type: T,
+    field: keyof DocumentFormDataMap[T],
+    file: File | null,
+  ) {
+    setDocumentDrafts((prev) => {
+      const nextData = { ...prev[type], [field]: file } as DocumentFormDataMap[T];
+      setDocumentErrors((errors) => ({
+        ...errors,
+        [type]: {
+          ...errors[type],
+          [field]: validateDocumentField(type, field, nextData) ?? undefined,
+        },
+      }));
+      return { ...prev, [type]: nextData };
+    });
+    setApptError(null);
+  }
+
+  function blurDocumentField<T extends DocumentType>(
+    type: T,
+    field: keyof DocumentFormDataMap[T],
+  ) {
+    const nextError = validateDocumentField(type, field, documentDrafts[type]);
+    setDocumentErrors((prev) => ({
+      ...prev,
+      [type]: {
+        ...prev[type],
+        [field]: nextError ?? undefined,
+      },
+    }));
   }
 
   function updateContactField(
@@ -306,6 +533,7 @@ export default function SiteHomePage() {
   }, []);
 
   function goToAppointmentForDocument(documentTypeValue: string) {
+    clearanceBookingDocAckRef.current = false;
     updateAppointmentField("documentType", documentTypeValue, setDocumentType);
     handleNavigation("book");
     requestAnimationFrame(() => {
@@ -403,6 +631,15 @@ export default function SiteHomePage() {
     }
 
     const ageNum = Number(age);
+    const activeDocumentType = isDocumentType(documentType) ? documentType : null;
+    if (!activeDocumentType) {
+      setApptError("Please select a valid document type.");
+      return;
+    }
+    const documentPayload = buildDocumentPayload(
+      activeDocumentType,
+      documentDrafts[activeDocumentType],
+    );
     setApptBusy(true);
     try {
       const raw = await apiJson<unknown>("/appointments", {
@@ -416,6 +653,8 @@ export default function SiteHomePage() {
           month: monthName,
           location,
           document_type: documentType,
+          document_details: documentPayload.document_details,
+          attachments: documentPayload.attachments,
         }),
       });
       const created =
@@ -428,6 +667,8 @@ export default function SiteHomePage() {
       setAppointmentDate("");
       setLocation("");
       setDocumentType("");
+      setDocumentDrafts(createInitialDocumentDrafts());
+      setDocumentErrors(createInitialDocumentErrors());
       setAppointmentErrors({});
       clearanceBookingDocAckRef.current = false;
       if (!created) {
@@ -455,7 +696,16 @@ export default function SiteHomePage() {
     } finally {
       setApptBusy(false);
     }
-  }, [fullName, age, address, appointmentDate, location, documentType, loadAppointments]);
+  }, [
+    fullName,
+    age,
+    address,
+    appointmentDate,
+    location,
+    documentType,
+    documentDrafts,
+    loadAppointments,
+  ]);
 
   const continueAfterClearanceDoc = useCallback(() => {
     setClearanceModal({ open: false });
@@ -530,6 +780,14 @@ export default function SiteHomePage() {
   }, [appointments, appointmentFilter]);
 
   const monthlyRemaining = Math.max(0, MONTHLY_APPOINTMENT_LIMIT - monthlyUsed);
+  const submitDisabled =
+    apptBusy ||
+    monthlyRemaining <= 0 ||
+    !selectedDocumentType ||
+    !currentDocumentIsComplete ||
+    hasErrors(validateAllAppointmentFields()) ||
+    hasErrors(appointmentErrors) ||
+    hasErrors(currentDocumentErrors as Record<string, string | undefined>);
 
   async function submitAppointment(e: FormEvent) {
     e.preventDefault();
@@ -540,6 +798,24 @@ export default function SiteHomePage() {
     const firstError = Object.values(nextErrors).find(Boolean);
     if (firstError) {
       setApptError(firstError);
+      return;
+    }
+    if (!selectedDocumentType) {
+      setAppointmentErrors((prev) => ({ ...prev, documentType: "Please select a document type." }));
+      setApptError("Please select a document type.");
+      return;
+    }
+    const nextDocumentErrors = validateDocumentForm(
+      selectedDocumentType,
+      documentDrafts[selectedDocumentType],
+    );
+    setDocumentErrors((prev) => ({
+      ...prev,
+      [selectedDocumentType]: nextDocumentErrors,
+    }));
+    const firstDocumentError = Object.values(nextDocumentErrors).find(Boolean);
+    if (firstDocumentError) {
+      setApptError(String(firstDocumentError));
       return;
     }
     const token = getToken();
@@ -640,12 +916,94 @@ export default function SiteHomePage() {
     return () => observer.disconnect();
   }, []);
 
+  function renderDocumentSpecificForm() {
+    if (!selectedDocumentType) {
+      return (
+        <div className="document-form-panel document-form-panel--empty">
+          <p>Select a document type to show the required request fields.</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="document-form-panel" key={selectedDocumentType}>
+        <div className="document-form-panel__header">
+          <span>Required details</span>
+          <strong>{selectedDocumentType}</strong>
+        </div>
+        {selectedDocumentType === "Barangay Clearance" ? (
+          <BarangayClearanceForm
+            data={documentDrafts["Barangay Clearance"]}
+            errors={documentErrors["Barangay Clearance"]}
+            onTextChange={(field, value) =>
+              updateDocumentTextField("Barangay Clearance", field, value)
+            }
+            onFileChange={(field, file) =>
+              updateDocumentFileField("Barangay Clearance", field, file)
+            }
+            onBlur={(field) => blurDocumentField("Barangay Clearance", field)}
+          />
+        ) : null}
+        {selectedDocumentType === "Certificate of Indigency" ? (
+          <CertificateOfIndigencyForm
+            data={documentDrafts["Certificate of Indigency"]}
+            errors={documentErrors["Certificate of Indigency"]}
+            onTextChange={(field, value) =>
+              updateDocumentTextField("Certificate of Indigency", field, value)
+            }
+            onFileChange={(field, file) =>
+              updateDocumentFileField("Certificate of Indigency", field, file)
+            }
+            onBlur={(field) => blurDocumentField("Certificate of Indigency", field)}
+          />
+        ) : null}
+        {selectedDocumentType === "Business Permit" ? (
+          <BusinessPermitForm
+            data={documentDrafts["Business Permit"]}
+            errors={documentErrors["Business Permit"]}
+            onTextChange={(field, value) => updateDocumentTextField("Business Permit", field, value)}
+            onFileChange={(field, file) => updateDocumentFileField("Business Permit", field, file)}
+            onBlur={(field) => blurDocumentField("Business Permit", field)}
+          />
+        ) : null}
+        {selectedDocumentType === "Proof of Residency" ? (
+          <ProofOfResidencyForm
+            data={documentDrafts["Proof of Residency"]}
+            errors={documentErrors["Proof of Residency"]}
+            onTextChange={(field, value) =>
+              updateDocumentTextField("Proof of Residency", field, value)
+            }
+            onFileChange={(field, file) =>
+              updateDocumentFileField("Proof of Residency", field, file)
+            }
+            onBlur={(field) => blurDocumentField("Proof of Residency", field)}
+          />
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div>
       <ClearanceDocumentModal
         open={clearanceModal.open}
         mode={
           clearanceModal.open && clearanceModal.purpose === "view" ? "view" : "booking"
+        }
+        bookingRequest={
+          selectedDocumentType
+            ? {
+                name: fullName,
+                age: Number(age) || 0,
+                address,
+                location,
+                documentType: selectedDocumentType,
+                details: buildDocumentPayload(
+                  selectedDocumentType,
+                  documentDrafts[selectedDocumentType],
+                ).document_details,
+              }
+            : undefined
         }
         viewerAppointment={
           clearanceModal.open && clearanceModal.purpose === "view"
@@ -1189,9 +1547,10 @@ export default function SiteHomePage() {
                       name="documentType"
                       required
                       value={documentType}
-                      onChange={(e) =>
-                        updateAppointmentField("documentType", e.target.value, setDocumentType)
-                      }
+                      onChange={(e) => {
+                        clearanceBookingDocAckRef.current = false;
+                        updateAppointmentField("documentType", e.target.value, setDocumentType);
+                      }}
                       onBlur={() =>
                         setAppointmentErrors((prev) => ({
                           ...prev,
@@ -1205,10 +1564,11 @@ export default function SiteHomePage() {
                       }
                     >
                       <option value="">Select Document Type</option>
-                      <option value="Barangay Clearance">Barangay Clearance</option>
-                      <option value="Certificate of Indigency">Certificate of Indigency</option>
-                      <option value="Business Permit">Business Permit</option>
-                      <option value="Proof of Residency">Proof of Residency</option>
+                      {DOCUMENT_TYPES.map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
                     </select>
                     {appointmentErrors.documentType ? (
                       <div className="field-error" id="appt-document-error">
@@ -1218,10 +1578,12 @@ export default function SiteHomePage() {
                   </div>
                 </div>
 
+                {renderDocumentSpecificForm()}
+
                 <button
                   type="submit"
                   className="submit-btn"
-                  disabled={apptBusy || monthlyRemaining <= 0}
+                  disabled={submitDisabled}
                 >
                   <span className="btn-text">
                     {apptBusy
@@ -1450,14 +1812,6 @@ export default function SiteHomePage() {
               <p>
                 <i className="bx bx-envelope" />
                 nathaniel.palco@csucc.edu.ph
-              </p>
-              <p>
-                <i className="bx bx-envelope" />
-                jane.garzon@csucc.edu.ph
-              </p>
-              <p>
-                <i className="bx bx-envelope" />
-                mohammadmadhi.fornilos@csucc.edu.ph
               </p>
             </div>
 

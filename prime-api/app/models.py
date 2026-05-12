@@ -57,6 +57,8 @@ class Appointment(Base):
     month: Mapped[str] = mapped_column(String(50))
     location: Mapped[str] = mapped_column(Text)
     document_type: Mapped[str] = mapped_column(String(100))
+    document_details: Mapped[str | None] = mapped_column(Text, nullable=True)
+    attachment_names: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="pending", index=True)
     cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[object] = mapped_column(

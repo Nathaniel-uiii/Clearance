@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone, timedelta
+import json
 import logging
 import secrets
 import smtplib
@@ -574,6 +575,8 @@ def create_appointment(
         month=payload.month,
         location=payload.location,
         document_type=payload.document_type,
+        document_details=json.dumps(payload.document_details or {}),
+        attachment_names=json.dumps(payload.attachments or []),
         status="pending",
     )
     db.add(appt)

@@ -118,6 +118,8 @@ class AppointmentCreateRequest(BaseModel):
     month: str
     location: str
     document_type: str
+    document_details: Optional[dict[str, str]] = None
+    attachments: Optional[list[dict[str, str | int]]] = None
 
     @field_validator("name")
     @classmethod
@@ -161,6 +163,8 @@ class AppointmentResponse(BaseModel):
     month: str
     location: str
     document_type: str
+    document_details: Optional[str] = None
+    attachment_names: Optional[str] = None
     status: str
     cancellation_reason: Optional[str] = None
     created_at: datetime
@@ -259,6 +263,8 @@ class AdminAppointmentResponse(BaseModel):
     month: str
     location: str
     document_type: str
+    document_details: Optional[str] = None
+    attachment_names: Optional[str] = None
     status: str
     cancellation_reason: Optional[str] = None
     created_at: datetime

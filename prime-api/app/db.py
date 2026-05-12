@@ -77,6 +77,10 @@ def run_startup_migrations() -> None:
                         "VARCHAR(100) NOT NULL DEFAULT 'Barangay Clearance'"
                     )
                 )
+            if "document_details" not in names:
+                conn.execute(text("ALTER TABLE appointments ADD COLUMN document_details TEXT"))
+            if "attachment_names" not in names:
+                conn.execute(text("ALTER TABLE appointments ADD COLUMN attachment_names TEXT"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_appointments_user_id ON appointments (user_id)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_appointments_status ON appointments (status)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_contact_messages_status ON contact_messages (status)"))
@@ -108,6 +112,18 @@ def run_startup_migrations() -> None:
                 text(
                     "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS "
                     "document_type VARCHAR(100)"
+                )
+            )
+            conn.execute(
+                text(
+                    "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS "
+                    "document_details TEXT"
+                )
+            )
+            conn.execute(
+                text(
+                    "ALTER TABLE appointments ADD COLUMN IF NOT EXISTS "
+                    "attachment_names TEXT"
                 )
             )
             conn.execute(

@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS public.appointments (
     month VARCHAR(50) NOT NULL,
     location TEXT NOT NULL,
     document_type VARCHAR(100) NOT NULL,
+    document_details TEXT,
+    attachment_names TEXT,
     status VARCHAR(50) NOT NULL DEFAULT 'pending',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -33,6 +35,8 @@ CREATE INDEX IF NOT EXISTS ix_appointments_user_id ON public.appointments (user_
 -- ALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS document_type VARCHAR(100);
 -- UPDATE public.appointments SET document_type = 'Barangay Clearance' WHERE document_type IS NULL;
 -- ALTER TABLE public.appointments ALTER COLUMN document_type SET NOT NULL;
+-- ALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS document_details TEXT;
+-- ALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS attachment_names TEXT;
 
 CREATE TABLE IF NOT EXISTS public.contact_messages (
     id SERIAL PRIMARY KEY,
