@@ -161,13 +161,38 @@ export default function AdminAppointmentsPage() {
       )}
 
       <div className="admin-filters">
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-          <option value="all">All Statuses</option>
-          <option value="pending">Pending</option>
-          <option value="confirmed">Confirmed</option>
-          <option value="completed">Completed</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
+        <div className="status-tabs">
+          <button
+            className={`status-tab ${statusFilter === "all" ? "active" : ""}`}
+            onClick={() => setStatusFilter("all")}
+          >
+            All
+          </button>
+          <button
+            className={`status-tab ${statusFilter === "pending" ? "active" : ""}`}
+            onClick={() => setStatusFilter("pending")}
+          >
+            Pending
+          </button>
+          <button
+            className={`status-tab ${statusFilter === "confirmed" ? "active" : ""}`}
+            onClick={() => setStatusFilter("confirmed")}
+          >
+            Confirmed
+          </button>
+          <button
+            className={`status-tab ${statusFilter === "completed" ? "active" : ""}`}
+            onClick={() => setStatusFilter("completed")}
+          >
+            Done
+          </button>
+          <button
+            className={`status-tab ${statusFilter === "cancelled" ? "active" : ""}`}
+            onClick={() => setStatusFilter("cancelled")}
+          >
+            Cancelled
+          </button>
+        </div>
         <select value={documentFilter} onChange={(e) => setDocumentFilter(e.target.value)}>
           <option value="all">All Document Types</option>
           {documentOptions.map((documentType) => (

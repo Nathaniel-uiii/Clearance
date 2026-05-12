@@ -572,6 +572,35 @@
   font-size: 0.9rem;
 }
 
+.status-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+.status-tab {
+  padding: 8px 18px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  color: #555;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.status-tab:hover {
+  background: #f0f0f0;
+  border-color: #bbb;
+}
+
+.status-tab.active {
+  background: #667eea;
+  color: #fff;
+  border-color: #667eea;
+}
+
 .admin-filters button {
   padding: 10px 20px;
   background: #667eea;

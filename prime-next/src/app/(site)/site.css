@@ -943,13 +943,31 @@ form {
 }
 
 .form-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
 }
 
 .input-box {
     margin-bottom: 0;
+}
+
+@media (max-width: 1100px) {
+    .form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 720px) {
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 520px) {
+    .appointment-filter-tabs {
+        grid-template-columns: 1fr;
+    }
 }
 
 .input-box label {
@@ -1055,7 +1073,7 @@ form {
 .appointments-list {
     flex: 0 1 auto;
     min-height: 0;
-    max-height: min(58vh, 540px);
+    max-height: min(340px, 55vh);
     overflow-y: auto;
     overflow-x: hidden;
     padding: 2px 6px 6px 2px;
@@ -1312,6 +1330,79 @@ form {
     font-weight: 700;
     letter-spacing: 0.06em;
 }
+.appointment-filter-tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: nowrap;
+    justify-content: center;
+    margin-bottom: 10px;
+}
+
+.appointment-filter-tabs button {
+    padding: 6px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.4);
+    color: #e0e0e0;
+    cursor: pointer;
+    font-size: 0.82rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.appointment-filter-tabs button:hover {
+    background: rgba(0, 0, 0, 0.55);
+    border-color: rgba(255, 255, 255, 0.5);
+    color: #fff;
+}
+
+.appointment-filter-tabs button.active-all {
+    background: #7c3aed;
+    border-color: #a78bfa;
+    color: #fff;
+    font-weight: 700;
+}
+
+.appointment-filter-tabs button.active-pending {
+    background: #ca8a04;
+    border-color: #eab308;
+    color: #fff;
+    font-weight: 700;
+}
+
+.appointment-filter-tabs button.active-completed {
+    background: #16a34a;
+    border-color: #22c55e;
+    color: #fff;
+    font-weight: 700;
+}
+
+.appointment-filter-tabs button.active-cancelled {
+    background: #dc2626;
+    border-color: #ef4444;
+    color: #fff;
+    font-weight: 700;
+}
+
+.appointment-filter-tabs button strong {
+    font-size: 0.75rem;
+    background: rgba(255, 255, 255, 0.12);
+    padding: 1px 6px;
+    border-radius: 10px;
+    min-width: 18px;
+    text-align: center;
+}
+
+.appointment-filter-tabs button.active-all strong,
+.appointment-filter-tabs button.active-pending strong,
+.appointment-filter-tabs button.active-completed strong,
+.appointment-filter-tabs button.active-cancelled strong {
+    background: rgba(255, 255, 255, 0.2);
+}
+
 .status-pending {
     background: rgba(255, 193, 7, 0.35);
 }
@@ -1387,6 +1478,126 @@ form {
 .cancel-btn:not(:disabled):hover {
     background: #dc3545;
 }
+.booking-form-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 6px;
+}
+
+.booking-eyebrow {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #666;
+}
+
+.booking-progress {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #0b3d91;
+}
+
+.booking-progress-bar {
+    height: 4px;
+    background: #e5e7eb;
+    border-radius: 4px;
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+
+.booking-progress-bar span {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, #0b3d91, #2196f3);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.appointment-filter-tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    align-items: center;
+    margin: 0 0 8px;
+    padding: 8px 8px 6px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    overflow-x: auto;
+}
+
+.appointment-filter-tabs button {
+    padding: 6px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.9);
+    color: #e5e7eb;
+    cursor: pointer;
+    font-size: 0.78rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    transition: all 0.2s;
+    white-space: nowrap;
+    min-width: 0;
+    flex: 1;
+}
+
+.appointment-filter-tabs button:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.24);
+    color: #ffffff;
+}
+
+.appointment-filter-tabs button.active-all {
+    background: #7c3aed;
+    border-color: #7c3aed;
+    color: #fff;
+    font-weight: 700;
+}
+
+.appointment-filter-tabs button.active-pending {
+    background: #ca8a04;
+    border-color: #ca8a04;
+    color: #fff;
+    font-weight: 700;
+}
+
+.appointment-filter-tabs button.active-completed {
+    background: #16a34a;
+    border-color: #16a34a;
+    color: #fff;
+    font-weight: 700;
+}
+
+.appointment-filter-tabs button.active-cancelled {
+    background: #dc2626;
+    border-color: #dc2626;
+    color: #fff;
+    font-weight: 700;
+}
+
+.appointment-filter-tabs button strong {
+    font-size: 0.75rem;
+    background: #e5e7eb;
+    padding: 1px 6px;
+    border-radius: 10px;
+    min-width: 18px;
+    text-align: center;
+    color: #374151;
+}
+
+.appointment-filter-tabs button.active-all strong,
+.appointment-filter-tabs button.active-pending strong,
+.appointment-filter-tabs button.active-completed strong,
+.appointment-filter-tabs button.active-cancelled strong {
+    background: rgba(255, 255, 255, 0.3);
+    color: #fff;
+}
+
 .book-error {
     color: #ffcdd2;
     font-size: 0.9em;

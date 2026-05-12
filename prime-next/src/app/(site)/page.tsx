@@ -50,6 +50,8 @@ type AppointmentErrors = Partial<
 
 type ContactErrors = Partial<Record<"fullname" | "email" | "phone" | "subject" | "message", string>>;
 
+type AppointmentFilter = "all" | "pending" | "completed" | "cancelled";
+
 function normalizeAppointmentRow(raw: Record<string, unknown>): Appointment | null {
   const id = Number(raw.id);
   if (!Number.isFinite(id)) return null;
@@ -143,8 +145,15 @@ export default function SiteHomePage() {
   const [contactError, setContactError] = useState<string | null>(null);
   const [contactSuccess, setContactSuccess] = useState<string | null>(null);
   const [contactErrors, setContactErrors] = useState<ContactErrors>({});
+  const [appointmentFilter, setAppointmentFilter] = useState<AppointmentFilter>("all");
   /** True only after user confirms the sample clearance on this booking attempt (not persisted). */
   const clearanceBookingDocAckRef = useRef(false);
+
+  const bookingProgress = useMemo(() => {
+    const fields = [fullName, age, address, appointmentDate, location, documentType];
+    const filled = fields.filter((f) => f.trim().length > 0).length;
+    return Math.round((filled / fields.length) * 100);
+  }, [fullName, age, address, appointmentDate, location, documentType]);
 
   function validateAppointmentField(
     field: keyof AppointmentErrors,
@@ -487,6 +496,30 @@ export default function SiteHomePage() {
     }).length;
   }, [appointments]);
 
+  const pendingAppointments = useMemo(
+    () => appointments.filter((a) => a.status.toLowerCase() === "pending").length,
+    [appointments],
+  );
+  const completedAppointments = useMemo(() => {
+    return appointments.filter((a) => {
+      const s = a.status.toLowerCase();
+      return s === "done" || s === "completed";
+    }).length;
+  }, [appointments]);
+  const cancelledAppointments = useMemo(
+    () => appointments.filter((a) => a.status.toLowerCase() === "cancelled").length,
+    [appointments],
+  );
+
+  const filteredAppointments = useMemo(() => {
+    if (appointmentFilter === "all") return appointments;
+    return appointments.filter((a) => {
+      const s = a.status.toLowerCase();
+      if (appointmentFilter === "completed") return s === "done" || s === "completed";
+      return s === appointmentFilter;
+    });
+  }, [appointments, appointmentFilter]);
+
   const monthlyRemaining = Math.max(0, MONTHLY_APPOINTMENT_LIMIT - monthlyUsed);
 
   async function submitAppointment(e: FormEvent) {
@@ -825,7 +858,18 @@ export default function SiteHomePage() {
           <div className="appointment-form">
             <form onSubmit={submitAppointment}>
               <div className="form-box">
-                <h1>Make An Appointment</h1>
+                <div className="booking-form-header">
+                  <div>
+                    <span className="booking-eyebrow">Booking request</span>
+                    <h1>Make An Appointment</h1>
+                  </div>
+                  <div className="booking-progress" aria-label={`${bookingProgress}% complete`}>
+                    <span>{bookingProgress}%</span>
+                  </div>
+                </div>
+                <div className="booking-progress-bar" aria-hidden="true">
+                  <span style={{ width: `${bookingProgress}%` }} />
+                </div>
                 {apptError ? <div className="book-error">{apptError}</div> : null}
                 {apptSuccess ? (
                   <div className="book-success" role="status">
@@ -1181,6 +1225,24 @@ export default function SiteHomePage() {
               <div className="appointments-panel-header">
                 <h2 className="appointments-panel-header__title">Your Appointments</h2>
               </div>
+              <div className="appointment-filter-tabs" aria-label="Filter appointments">
+                {[
+                  ["all", "All", appointments.length],
+                  ["pending", "Pending", pendingAppointments],
+                  ["completed", "Done", completedAppointments],
+                  ["cancelled", "Cancelled", cancelledAppointments],
+                ].map(([key, label, count]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className={appointmentFilter === key ? `active-${key}` : ""}
+                    onClick={() => setAppointmentFilter(key as AppointmentFilter)}
+                  >
+                    <span>{label}</span>
+                    <strong>{count}</strong>
+                  </button>
+                ))}
+              </div>
               <div className="appointments-list" ref={appointmentsListRef}>
                 {appointments.length === 0 ? (
                   <div className="no-appointments">
@@ -1188,8 +1250,10 @@ export default function SiteHomePage() {
                       ? "No appointments yet."
                       : "Log in to see your appointments."}
                   </div>
+                ) : filteredAppointments.length === 0 ? (
+                  <div className="no-appointments">No {appointmentFilter} appointments.</div>
                 ) : (
-                  appointments.map((a) => {
+                  filteredAppointments.map((a) => {
                     const nowMs = Date.now();
                     const createdMs = parseApiCreatedAtUtcMs(a.created_at);
                     const createdOk = createdMs != null;

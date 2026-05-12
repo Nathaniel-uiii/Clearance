@@ -78,9 +78,9 @@ function sortedEntries(record: Record<string, number>): Array<[string, number]> 
 }
 
 function LineChart({ points, color = "#2563eb" }: { points: TimePoint[]; color?: string }) {
-  const width = 520;
-  const height = 190;
-  const padding = 22;
+  const width = 320;
+  const height = 90;
+  const padding = 14;
   const max = Math.max(1, ...points.map((p) => p.count));
   const xStep = points.length > 1 ? (width - padding * 2) / (points.length - 1) : 0;
   const path = points
@@ -96,12 +96,12 @@ function LineChart({ points, color = "#2563eb" }: { points: TimePoint[]; color?:
       <title>Appointments over time</title>
       <path d={`M ${padding} ${height - padding} H ${width - padding}`} className="chart-axis" />
       <path d={`M ${padding} ${padding} V ${height - padding}`} className="chart-axis" />
-      <path d={path} fill="none" stroke={color} strokeWidth="4" strokeLinecap="round" />
+      <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" />
       {points.map((point, index) => {
         const x = padding + index * xStep;
         const y = height - padding - (point.count / max) * (height - padding * 2);
         return (
-          <circle key={point.date} cx={x} cy={y} r="4" fill={color}>
+          <circle key={point.date} cx={x} cy={y} r="3" fill={color}>
             <title>{`${point.date}: ${point.count}`}</title>
           </circle>
         );
